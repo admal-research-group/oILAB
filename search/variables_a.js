@@ -7,6 +7,8 @@ var searchData=
   ['mask_4',['mask',['../classgb_l_a_b_1_1_landau_wang_t_p.html#ace0eb426346ecf5fc553c314988b4b6a',1,'gbLAB::LandauWangTP']]],
   ['max_5fdenominator_5',['max_denominator',['../classgb_l_a_b_1_1_rational_approximations.html#ad2739fbd746b9986500da7606dc100e5',1,'gbLAB::RationalApproximations']]],
   ['maxden_6',['maxDen',['../classgb_l_a_b_1_1_rational_matrix.html#a6a32cce176a1932db8f6cf3df58f8354',1,'gbLAB::RationalMatrix']]],
-  ['mesostatecslvectors_7',['mesoStateCslVectors',['../classgb_l_a_b_1_1_gb_meso_state.html#a693f55e2d267a40682dac2c93533f4bc',1,'gbLAB::GbMesoState']]],
-  ['mu_8',['mu',['../classgb_l_a_b_1_1_gb_material_tensors.html#ac40328778c54f2373cc86df1065e80ed',1,'gbLAB::GbMaterialTensors::mu'],['../classgb_l_a_b_1_1_rational_matrix.html#a6c75ca7be8a811f8209863f82995f04d',1,'gbLAB::RationalMatrix::mu']]]
+  ['mbar_7',['mbar',['../namespaceheterodeformation.html#a0ff347db5a28972dc90b7f8ab6dbe5ef',1,'heterodeformation']]],
+  ['mesostatecslvectors_8',['mesoStateCslVectors',['../classgb_l_a_b_1_1_gb_meso_state.html#a693f55e2d267a40682dac2c93533f4bc',1,'gbLAB::GbMesoState']]],
+  ['misorientationaxis_9',['misorientationAxis',['../namespaceexample.html#a281373bb4fb6e0c268e69b0136b0afe4',1,'example']]],
+  ['mu_10',['mu',['../classgb_l_a_b_1_1_gb_material_tensors.html#ac40328778c54f2373cc86df1065e80ed',1,'gbLAB::GbMaterialTensors::mu'],['../classgb_l_a_b_1_1_rational_matrix.html#a6c75ca7be8a811f8209863f82995f04d',1,'gbLAB::RationalMatrix::mu']]]
 ];

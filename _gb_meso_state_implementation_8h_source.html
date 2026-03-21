@@ -156,7 +156,7 @@ $(document).ready(function(){initNavTree('_gb_meso_state_implementation_8h_sourc
 <div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    {</div>
 <div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>        Eigen::Matrix&lt;double, dim,dim-1&gt; mesoStateGbDomain;</div>
 <div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>        <span class="keywordflow">for</span>(<span class="keywordtype">int</span> i=1; i&lt;dim; ++i)</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>            mesoStateGbDomain.col(i-1)= mesoStateCslVectors[i].<a class="code hl_function" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a409168bf83ae7fd0a9ace2521976b468">cartesian</a>();</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>            mesoStateGbDomain.col(i-1)= mesoStateCslVectors[i].cartesian();</div>
 <div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>        <span class="keywordflow">return</span> mesoStateGbDomain;</div>
 <div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>    }</div>
 </div>
@@ -525,7 +525,6 @@ $(document).ready(function(){initNavTree('_gb_meso_state_implementation_8h_sourc
 <div class="ttc" id="aclassgb_l_a_b_1_1_periodic_function_html"><div class="ttname"><a href="classgb_l_a_b_1_1_periodic_function.html">gbLAB::PeriodicFunction</a></div><div class="ttdef"><b>Definition</b> <a href="_periodic_function_8h_source.html#l00021">PeriodicFunction.h:21</a></div></div>
 <div class="ttc" id="aclassgb_l_a_b_1_1_periodic_function_html_ab5317d349d961e009ec29751902028e9"><div class="ttname"><a href="classgb_l_a_b_1_1_periodic_function.html#ab5317d349d961e009ec29751902028e9">gbLAB::PeriodicFunction::unitCell</a></div><div class="ttdeci">const Eigen::Matrix&lt; double, Eigen::Dynamic, dim &gt; unitCell</div><div class="ttdef"><b>Definition</b> <a href="_periodic_function_8h_source.html#l00024">PeriodicFunction.h:24</a></div></div>
 <div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">gbLAB::ReciprocalLatticeVector</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8h_source.html#l00014">ReciprocalLatticeVector.h:15</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html_a409168bf83ae7fd0a9ace2521976b468"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a409168bf83ae7fd0a9ace2521976b468">gbLAB::ReciprocalLatticeVector::cartesian</a></div><div class="ttdeci">VectorDimD cartesian() const</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8cpp_source.html#l00118">ReciprocalLatticeVector.cpp:118</a></div></div>
 <div class="ttc" id="anamespacegb_l_a_b_html"><div class="ttname"><a href="namespacegb_l_a_b.html">gbLAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:14</a></div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
@@ -533,7 +532,7 @@ $(document).ready(function(){initNavTree('_gb_meso_state_implementation_8h_sourc
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li><li class="navelem"><a class="el" href="dir_89e5397bdce17fdc5442f582c343c5dc.html">Lattices</a></li><li class="navelem"><a class="el" href="_gb_meso_state_implementation_8h.html">GbMesoStateImplementation.h</a></li>
-    <li class="footer">Generated on Mon Sep 1 2025 05:47:57 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sat Mar 21 2026 00:32:59 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

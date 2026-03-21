@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['v_0',['v',['../classgb_l_a_b_1_1_smith_decomposition.html#a6e61865c855c580194e31155bfa9098f',1,'gbLAB::SmithDecomposition::V'],['../classgb_l_a_b_1_1_smith_decomposition_3_011_01_4.html#ade9c59e55b68c4d6b9b61c049ebaa10e',1,'gbLAB::SmithDecomposition&lt; 1 &gt;::V']]],
-  ['values_1',['values',['../classgb_l_a_b_1_1_lattice_function.html#a00d26ba356df4de1f91ead24bd315022',1,'gbLAB::LatticeFunction::values'],['../classgb_l_a_b_1_1_periodic_function.html#a9e17076435ca1af2016565bab6e14ca1',1,'gbLAB::PeriodicFunction::values']]],
-  ['viewercount_2',['viewerCount',['../structgb_l_a_b_1_1oi_viewer_main_window.html#a30c4c2a66f9b01b9e5864ec09c4af1fa',1,'gbLAB::oiViewerMainWindow']]]
+  ['u_0',['u',['../classgb_l_a_b_1_1_r_l_l_l.html#a333315a88ef80bdd0a1b8c8b69c2c524',1,'gbLAB::RLLL::U'],['../classgb_l_a_b_1_1_smith_decomposition.html#a2c70083dd7cfb2dafbc9cc5f3971e0a0',1,'gbLAB::SmithDecomposition::U'],['../classgb_l_a_b_1_1_smith_decomposition_3_011_01_4.html#a77a534e17eb80a350a965c5e8cff8ce0',1,'gbLAB::SmithDecomposition&lt; 1 &gt;::U']]],
+  ['uaverage_1',['uAverage',['../classgb_l_a_b_1_1_gb_continuum.html#a37767d2b0320c5da1877aaecd58dda9b',1,'gbLAB::GbContinuum']]],
+  ['unitcell_2',['unitCell',['../classgb_l_a_b_1_1_periodic_function.html#ab5317d349d961e009ec29751902028e9',1,'gbLAB::PeriodicFunction']]]
 ];

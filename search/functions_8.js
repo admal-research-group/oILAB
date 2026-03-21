@@ -9,6 +9,7 @@ var searchData=
   ['integergramschmidt_6',['integerGramSchmidt',['../structgb_l_a_b_1_1_integer_math.html#acd29455d4a6ad65576f78e3cfc0540ea',1,'gbLAB::IntegerMath']]],
   ['integerlattice_7',['IntegerLattice',['../classgb_l_a_b_1_1_integer_lattice.html#af49e01004c05b6c9c606451576d62db3',1,'gbLAB::IntegerLattice']]],
   ['interplanarspacing_8',['interPlanarSpacing',['../classgb_l_a_b_1_1_lattice.html#a3880dd8030efb3b6f048b8acf68fd0f6',1,'gbLAB::Lattice']]],
-  ['inversedeformationmap_9',['inverseDeformationMap',['../classgb_l_a_b_1_1_dislocations.html#a978a1b99163c4c94b1ac8cebf9df7f8f',1,'gbLAB::Dislocations']]],
-  ['iter_10',['iter',['../classrange_1_1iter.html#a21852d88bad1280c78112033929646d5',1,'range::iter']]]
+  ['inv2_5ffrac_9',['inv2_frac',['../namespaceheterodeformation.html#a8fe909ebe4734f5348ce42cfe9723f1e',1,'heterodeformation']]],
+  ['inversedeformationmap_10',['inverseDeformationMap',['../classgb_l_a_b_1_1_dislocations.html#a978a1b99163c4c94b1ac8cebf9df7f8f',1,'gbLAB::Dislocations']]],
+  ['iter_11',['iter',['../classrange_1_1iter.html#a21852d88bad1280c78112033929646d5',1,'range::iter']]]
 ];
