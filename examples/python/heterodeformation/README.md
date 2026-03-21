@@ -1,8 +1,49 @@
+This directory contains example scripts used to construct strain soliton networks from prescribed Burgers-vector / line-vector pairs, as described in the manuscript.
+
+## Running the examples
+
+First, configure and build oILAB from the repository root:
+
+```bash
+cmake -B build -S .
+cmake --build build
+```
+
+Next, navigate to the heterostrain example directory in the build tree:
+
+```bash
+cd build/examples/python/heterostrain
+```
+
+Run the script using:
+
+```bash
+PYTHONPATH=../../../bindings python heterostrain.py
+```
+
+The compiled Python extension module `pyoilab` is located in:
+
+```
+build/bindings/
+```
+
+and is made accessible via `PYTHONPATH`.
+
+All output files are written to the current working directory:
+
+```
+build/examples/python/heterostrain/
+```
+
+ensuring that the source tree remains unchanged.
+
+---
+
 # Inverse design examples for the manuscript
 
 This README lists the Burgers-vector/line-vector pairs used in the paper and explains how to run the accompanying script.
 
-The script `inverse_design_single_example.py` contains **one example only**. To reproduce another case from the paper, edit the following quantities in the **example block**:
+The script `heterodeformation.py` contains **one example only**. To reproduce another case from the paper, edit the following quantities in the **example block**:
 
 - `A` (choose graphene or MoS$_2$ lattice constant)
 - `b1u`, `b2u`, `b3u`
