@@ -9,6 +9,5 @@ target_link_libraries(pyoilab
     PRIVATE Python3::Python 
     PRIVATE oILAB)
 
-configure_file(example.py example.py)
-configure_file(pyoilab.pyi pyoilab.pyi)
+configure_file(pyoilab.pyi pyoilab.pyi COPYONLY)
 

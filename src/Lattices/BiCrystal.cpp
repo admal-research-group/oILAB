@@ -84,8 +84,7 @@ namespace gbLAB
                                                                              const Lattice<dim>& B,
                                                                              const SmithDecomposition<dim>& sd,
                                                                              const typename BiCrystal<dim>::MatrixDimI& M,
-                                                                             const typename BiCrystal<dim>::MatrixDimI& N,
-                                                                             const bool& useRLLL)
+                                                                             const typename BiCrystal<dim>::MatrixDimI& N)
     {
         // The transition matrix is T=P/sigma, where P=rm.integerMatrix is
         // an integer matrix and sigma=rm.sigma is an integer
@@ -118,6 +117,7 @@ namespace gbLAB
             throw std::runtime_error("CSL calculation failed.\n");
         }
 
+        /*
         if(useRLLL)
         {
             return RLLL(0.5*(C1+C2),0.75).reducedBasis();
@@ -126,6 +126,8 @@ namespace gbLAB
         {
             return 0.5*(C1+C2);
         }
+         */
+        return 0.5*(C1+C2);
     }
 
     template <int dim>
@@ -133,8 +135,7 @@ namespace gbLAB
                                    const Lattice<dim>& B,
                                    const SmithDecomposition<dim>& sd,
                                    const typename BiCrystal<dim>::MatrixDimI& M,
-                                   const typename BiCrystal<dim>::MatrixDimI& N,
-                                   const bool& useRLLL)
+                                   const typename BiCrystal<dim>::MatrixDimI& N)
     {
 
         const auto D1(A.latticeBasis*sd.matrixX().template cast<double>()*N.template cast<double>().inverse());
@@ -143,6 +144,7 @@ namespace gbLAB
         {
             throw std::runtime_error("DSCL calculation failed.\n");
         }
+        /*
         if(useRLLL)
         {
             return RLLL(0.5*(D1+D2),0.75).reducedBasis();
@@ -151,6 +153,8 @@ namespace gbLAB
         {
             return 0.5*(D1+D2);
         }
+         */
+        return 0.5*(D1+D2);
     }
 
 
@@ -167,8 +171,12 @@ namespace gbLAB
     /* init */,sigmaA(round(M.template cast<double>().determinant()))
     /* init */,sigmaB(round(N.template cast<double>().determinant()))
     /* init */,sigma(std::abs(sigmaA)==std::abs(sigmaB)? std::abs(sigmaA) : 0)
-    /* init */, csl(getCSLBasis (A,B,*this,M,N,useRLLL),MatrixDimD::Identity())
-    /* init */,dscl(getDSCLBasis(A,B,*this,M,N,useRLLL),MatrixDimD::Identity())
+    /* init */,cslp(getCSLBasis (A,B,*this,M,N),MatrixDimD::Identity())
+    /* init */,dsclp(getDSCLBasis(A,B,*this,M,N),MatrixDimD::Identity())
+    /* init */,csl2cslp(useRLLL ? RLLL(cslp.latticeBasis,0.75).unimodularMatrix() : MatrixDimI::Identity())
+    /* init */,dscl2dsclp(useRLLL ? RLLL(dsclp.latticeBasis,0.75).unimodularMatrix() : MatrixDimI::Identity())
+    /* init */,csl(cslp.latticeBasis*csl2cslp.template cast<double>())
+    /* init */,dscl(dsclp.latticeBasis*dscl2dsclp.template cast<double>())
     /* init */,Ap(A.latticeBasis*this->matrixX().template cast<double>())
     /* init */,Bp(B.latticeBasis*this->matrixV().template cast<double>())
     /* init */,LambdaA(getLambdaA(M,N))
@@ -235,8 +243,8 @@ namespace gbLAB
         if(&(v.lattice) == &(this->A))
             return v;
         else if(&(v.lattice) == &(this->csl))
-            // U*M*v
-            integerCoordinates= this->matrixX() * M * v;
+            // U*M*csl2cslp*v
+            integerCoordinates= this->matrixX() * M * csl2cslp * v;
         else
             throw(std::runtime_error("The input lattice vector should belong "
                                      "to lattice A or the CSL"));
@@ -253,8 +261,8 @@ namespace gbLAB
         if(&(v.lattice) == &(this->B))
             return v;
         else if(&(v.lattice) == &(this->csl))
-            // V*N*v
-            integerCoordinates= this->matrixV() * N * v;
+            // V*N*csl2cslp*v
+            integerCoordinates= this->matrixV() * N * csl2cslp * v;
         else
             throw(std::runtime_error("The input lattice vector should belong "
                                      "to lattice B or the CSL"));
@@ -278,13 +286,15 @@ namespace gbLAB
             // M*inv(V)*v
             integerCoordinates = M * adjV * v;
         else if(&(v.lattice) == &(this->csl))
-            // N*M*v
-            integerCoordinates = N * M * v;
+            // N*M*csl2cslp*v
+            integerCoordinates = N * M * csl2cslp * v;
         else if(&(v.lattice) == &(this->dscl))
             return LatticeVector<dim>(v);
         else
             throw(std::runtime_error("The input lattice vector should belong to one of the four lattices of the bicrystal"));
 
+        MatrixDimI adj_dscl2dsclp = MatrixDimIExt<IntScalarType,dim>::adjoint(dscl2dsclp);
+        integerCoordinates= adj_dscl2dsclp*integerCoordinates;
         auto temp= LatticeVector<dim>(integerCoordinates,dscl);
         if (temp.cartesian().dot(v.cartesian()) < 0) temp= -1*temp;
 
@@ -303,6 +313,7 @@ namespace gbLAB
         MatrixDimI adjM= MatrixDimIExt<IntScalarType,dim>::adjoint(M);
         MatrixDimI adjN= MatrixDimIExt<IntScalarType,dim>::adjoint(N);
         MatrixDimI adjMN= MatrixDimIExt<IntScalarType,dim>::adjoint(M*N);
+        MatrixDimI adj_csl2cslp = MatrixDimIExt<IntScalarType,dim>::adjoint(csl2cslp);
 
         if(&(v.lattice) == &(this->A))
             // inv(M)*inv(U)*v
@@ -313,10 +324,11 @@ namespace gbLAB
         else if(&(v.lattice) == &(this->csl))
             return LatticeDirection<dim>(v);
         else if(&(v.lattice) == &(this->dscl))
-            integerCoordinates = adjMN* v;
+            integerCoordinates = adjMN* dscl2dsclp * v;
         else
             throw(std::runtime_error("The input reciprocal lattice vector should belong to one of the four reciprocal lattices of the bicrystal"));
 
+        integerCoordinates= adj_csl2cslp*integerCoordinates;
         auto temp= LatticeVector<dim>(integerCoordinates,csl);
         if (temp.cartesian().dot(v.cartesian()) < 0) temp= -1*temp;
         return LatticeDirection<dim>(temp);
@@ -334,6 +346,8 @@ namespace gbLAB
 
         MatrixDimI adjX = MatrixDimIExt<IntScalarType, dim>::adjoint(this->matrixX());
         MatrixDimI adjM= MatrixDimIExt<IntScalarType,dim>::adjoint(M);
+        MatrixDimI adj_csl2cslp = MatrixDimIExt<IntScalarType,dim>::adjoint(csl2cslp);
+        MatrixDimI adj_dscl2dsclp = MatrixDimIExt<IntScalarType,dim>::adjoint(dscl2dsclp);
 
         if(&(rv.lattice) == &(this->A))
             return ReciprocalLatticeDirection<dim>(rv);
@@ -341,11 +355,11 @@ namespace gbLAB
             // U^-T*inverse(M)*N*V^T
             integerCoordinates= adjX.transpose() * adjM * N * (this->matrixV()).transpose() * rv;
         else if(&(rv.lattice) == &(this->csl))
-            // U^-T*inverse(M)
-            integerCoordinates= adjX.transpose() * adjM * rv;
+            // U^-T*inverse(M) * csl2cslp^{-T}
+            integerCoordinates= adjX.transpose() * adjM * adj_csl2cslp.transpose() * rv;
         else if(&(rv.lattice) == &(this->dscl))
-            // U^-T*N*rv
-            integerCoordinates = adjX.transpose() * N * rv;
+            // U^-T*N*rv * dscl2dsclp^{-T}
+            integerCoordinates = adjX.transpose() * N * adj_dscl2dsclp.transpose() * rv;
         else
             throw(std::runtime_error("The input reciprocal lattice vector should belong to one of the four reciprocal lattices of the bicrystal"));
 
@@ -362,6 +376,8 @@ namespace gbLAB
         MatrixDimI adjV= MatrixDimIExt<IntScalarType,dim>::adjoint(this->matrixV());
         MatrixDimI adjM= MatrixDimIExt<IntScalarType,dim>::adjoint(M);
         MatrixDimI adjN= MatrixDimIExt<IntScalarType,dim>::adjoint(N);
+        MatrixDimI adj_csl2cslp = MatrixDimIExt<IntScalarType,dim>::adjoint(csl2cslp);
+        MatrixDimI adj_dscl2dsclp = MatrixDimIExt<IntScalarType,dim>::adjoint(dscl2dsclp);
 
         if(&(rv.lattice) == &(this->A))
             // V^-T*inverse(N)*M*U^T
@@ -369,11 +385,11 @@ namespace gbLAB
         else if(&(rv.lattice) == &(this->B))
             return ReciprocalLatticeDirection<dim>(rv);
         else if(&(rv.lattice) == &(this->csl))
-            // V^-T*inverse(N)*rv
-            integerCoordinates= adjV.transpose() * adjN * rv;
+            // V^-T*inverse(N)*rv*cslp2csl^T
+            integerCoordinates= adjV.transpose() * adjN * adj_csl2cslp.transpose() * rv;
         else if(&(rv.lattice) == &(this->dscl))
-            // V^-T*M*rv
-            integerCoordinates= adjV.transpose() * M * rv;
+            // V^-T*M*rv*dsclp2dscl^T
+            integerCoordinates= adjV.transpose() * M * adj_dscl2dsclp.transpose() * rv;
         else
             throw(std::runtime_error("The input reciprocal lattice vector should belong to one of the four reciprocal lattices of the bicrystal"));
 
@@ -385,6 +401,7 @@ namespace gbLAB
     ReciprocalLatticeDirection<dim> BiCrystal<dim>::getReciprocalLatticeDirectionInC(const ReciprocalLatticeVector<dim>& rv) const
     {
         VectorDimI integerCoordinates;
+        MatrixDimI adj_dscl2dsclp = MatrixDimIExt<IntScalarType,dim>::adjoint(dscl2dsclp);
 
         if(&(rv.lattice) == &(this->A))
             // M*U^T*rv
@@ -396,10 +413,11 @@ namespace gbLAB
             return ReciprocalLatticeDirection<dim>(rv);
         else if(&(rv.lattice) == &(this->dscl))
             // M*N*rv
-            integerCoordinates= M*N*rv;
+            integerCoordinates= M*N*adj_dscl2dsclp.transpose()*rv;
         else
             throw(std::runtime_error("The input reciprocal lattice vector should belong to one of the four reciprocal lattices of the bicrystal"));
 
+        integerCoordinates= csl2cslp.transpose()*integerCoordinates;
         auto temp= ReciprocalLatticeVector<dim>(integerCoordinates,csl);
         if (temp.cartesian().dot(rv.cartesian()) < 0) temp= -1*temp;
         return ReciprocalLatticeDirection<dim>(temp);
@@ -408,6 +426,7 @@ namespace gbLAB
     ReciprocalLatticeDirection<dim> BiCrystal<dim>::getReciprocalLatticeDirectionInD(const ReciprocalLatticeVector<dim> &rv) const
     {
         VectorDimI integerCoordinates;
+        MatrixDimI adj_csl2cslp = MatrixDimIExt<IntScalarType,dim>::adjoint(csl2cslp);
 
         MatrixDimI adjM= MatrixDimIExt<IntScalarType,dim>::adjoint(M);
         MatrixDimI adjN= MatrixDimIExt<IntScalarType,dim>::adjoint(N);
@@ -417,10 +436,11 @@ namespace gbLAB
         else if(&(rv.lattice) == &(this->B))
             integerCoordinates= adjM * (this->matrixV().transpose()) * rv;
         else if(&(rv.lattice) == &(this->csl))
-            integerCoordinates= adjN * adjM * rv;
+            integerCoordinates= adjN * adjM * adj_csl2cslp.transpose() * rv;
         else
             throw(std::runtime_error("The input reciprocal lattice vector should belong to one of the four reciprocal lattices of the bicrystal"));
 
+        integerCoordinates= dscl2dsclp.transpose()*integerCoordinates;
         auto temp= ReciprocalLatticeVector<dim>(integerCoordinates,dscl);
         if (temp.cartesian().dot(rv.cartesian()) < 0) temp= -1*temp;
         return ReciprocalLatticeDirection<dim>(temp);
@@ -642,7 +662,7 @@ namespace gbLAB
                 file << (rotation*boxVectorsForC[0].cartesian()).transpose() << " 0 ";
                 file << (rotation*boxVectorsForC[1].cartesian()).transpose() << " 0 ";
                 file << " 0 0 1 ";
-                file << "\" Properties=atom_types:I:1:pos:R:3:radius:R:1 PBC=\"F T T\" origin=\"";
+                file << "\" Properties=atom_types:I:1:pos:R:3:radius:R:1 PBC=\"T T F\" origin=\"";
                 file << (rotation*origin.cartesian()).transpose() << " 0.0\"" << std::endl;
                 for (const auto &vector: configurationA)
                     file << 1 << " " << (rotation*vector.cartesian()).transpose() << " " << 0.0 << "  " << 0.05 << std::endl;

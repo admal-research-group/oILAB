@@ -14,6 +14,7 @@ namespace pyoilab {
     template<int dim>
     void bind_BiCrystal(py::module_ &m) {
         using PyLatticeVector = PyLatticeVector<dim>;
+        using PyReciprocalLatticeVector = PyReciprocalLatticeVector<dim>;
         using BiCrystal = gbLAB::BiCrystal<dim>;
         using Lattice = gbLAB::Lattice<dim>;
         using LatticeVector = gbLAB::LatticeVector<dim>;
@@ -31,6 +32,8 @@ namespace pyoilab {
             return self.B;
         }, py::return_value_policy::reference_internal);
         cls.def_readonly("sigma",&BiCrystal::sigma);
+        cls.def_readonly("sigmaA",&BiCrystal::sigmaA);
+        cls.def_readonly("sigmaB",&BiCrystal::sigmaB);
         cls.def_readonly("csl",&BiCrystal::csl);
         cls.def_readonly("dscl",&BiCrystal::dscl);
         cls.def("box", [](const BiCrystal& self,
@@ -53,8 +56,32 @@ namespace pyoilab {
                 pyLatticeVectors.push_back(PyLatticeVector(v));
             return pyLatticeVectors;
         }, py::arg("boxVectors"), py::arg("orthogonality"), py::arg("dsclFactor"), py::arg("filename")="", py::arg("orient")=false);
+        cls.def("getLatticeVectorInA",[](const BiCrystal& self, const PyLatticeVector& v){
+            return PyLatticeVector(self.getLatticeVectorInA(v.lv));
+        });
+        cls.def("getLatticeVectorInB",[](const BiCrystal& self, const PyLatticeVector& v){
+            return PyLatticeVector(self.getLatticeVectorInB(v.lv));
+        });
+        cls.def("getLatticeVectorInD",[](const BiCrystal& self, const PyLatticeVector& v){
+            return PyLatticeVector(self.getLatticeVectorInD(v.lv));
+        });
         cls.def("getLatticeDirectionInC",[](const BiCrystal& self, const PyLatticeVector& v){
             return PyLatticeDirection(self.getLatticeDirectionInC(v.lv));
+        });
+        cls.def("getLatticeDirectionInD",[](const BiCrystal& self, const PyLatticeVector& v){
+            return PyLatticeDirection(self.getLatticeDirectionInD(v.lv));
+        });
+        cls.def("getReciprocalLatticeDirectionInA",[](const BiCrystal& self, const PyReciprocalLatticeVector& rv){
+            return PyReciprocalLatticeDirection(self.getReciprocalLatticeDirectionInA(rv.rlv));
+        });
+        cls.def("getReciprocalLatticeDirectionInB",[](const BiCrystal& self, const PyReciprocalLatticeVector& rv){
+            return PyReciprocalLatticeDirection(self.getReciprocalLatticeDirectionInB(rv.rlv));
+        });
+        cls.def("getReciprocalLatticeDirectionInC",[](const BiCrystal& self, const PyReciprocalLatticeVector& rv){
+            return PyReciprocalLatticeDirection(self.getReciprocalLatticeDirectionInC(rv.rlv));
+        });
+        cls.def("getReciprocalLatticeDirectionInD",[](const BiCrystal& self, const PyReciprocalLatticeVector& rv){
+            return PyReciprocalLatticeDirection(self.getReciprocalLatticeDirectionInD(rv.rlv));
         });
     }
 }

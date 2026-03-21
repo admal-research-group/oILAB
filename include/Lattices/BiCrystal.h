@@ -42,14 +42,12 @@ namespace gbLAB
                                       const Lattice<dim>& B,
                                       const SmithDecomposition<dim>& sd,
                                       const MatrixDimI& M,
-                                      const MatrixDimI& N,
-                                      const bool& useRLLL);
+                                      const MatrixDimI& N);
         static MatrixDimD getDSCLBasis(const Lattice<dim>& A,
                                        const Lattice<dim>& B,
                                        const SmithDecomposition<dim>& sd,
                                        const MatrixDimI& M,
-                                       const MatrixDimI& N,
-                                       const bool& useRLLL);
+                                       const MatrixDimI& N);
 
     public:
 
@@ -81,6 +79,26 @@ namespace gbLAB
          */
         const int sigma;
 
+    private:
+        /*! \brief Lattice \f$\mathcal C\f$ with basis \f$\textbf C^\|\f$
+         */
+        const Lattice<dim> cslp;
+
+        /*! \brief Lattice \f$\mathcal D\f$ with basis \f$\textbf D^\|\f$
+         */
+        const Lattice<dim> dsclp;
+
+        /*! \brief Maps integer coordinates w.r.t \f$\textbf D\f$ basis to
+         * integer coordinates w.r.t parallel basis \f$\textbf D^\|\f$
+         */
+        const MatrixDimI dscl2dsclp;
+
+        /*! \brief Maps integer coordinates w.r.t \f$\textbf C\f$ basis to
+         * integer coordinates w.r.t parallel basis \f$\textbf C^\|\f$
+         */
+        const MatrixDimI csl2cslp;
+
+    public:
         /*! \brief CSL lattice \f$\mathcal C\f$.
          */
         const Lattice<dim> csl;
