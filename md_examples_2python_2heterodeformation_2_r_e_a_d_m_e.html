@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>oILAB: README</title>
+<title>oILAB: Inverse design of heterodeformations for strain soliton networks</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -97,49 +97,105 @@ $(document).ready(function(){initNavTree('md_examples_2python_2heterodeformation
 </div>
 
 <div><div class="header">
-  <div class="headertitle"><div class="title">README</div></div>
+  <div class="headertitle"><div class="title">Inverse design of heterodeformations for strain soliton networks</div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This directory contains example scripts used to construct strain soliton networks from prescribed Burgers-vector / line-vector pairs, as described in the manuscript.</p>
-<h2><a class="anchor" id="autotoc_md0"></a>
-Running the examples</h2>
-<p>First, configure and build oILAB from the repository root:</p>
-<div class="fragment"><div class="line">cmake -B build -S .</div>
-<div class="line">cmake --build build</div>
-</div><!-- fragment --><p>Next, navigate to the heterostrain example directory in the build tree:</p>
-<div class="fragment"><div class="line">cd build/examples/python/heterostrain</div>
-</div><!-- fragment --><p>Run the script using:</p>
-<div class="fragment"><div class="line">PYTHONPATH=../../../bindings python heterostrain.py</div>
-</div><!-- fragment --><p>The compiled Python extension module <code>pyoilab</code> is located in:</p>
-<div class="fragment"><div class="line">build/bindings/</div>
-</div><!-- fragment --><p>and is made accessible via <code>PYTHONPATH</code>.</p>
-<p>All output files are written to the current working directory:</p>
-<div class="fragment"><div class="line">build/examples/python/heterostrain/</div>
-</div><!-- fragment --><p>ensuring that the source tree remains unchanged.</p>
+<div class="textblock"><p><a class="anchor" id="autotoc_md0"></a> This directory contains example scripts and data used to construct strain soliton networks from prescribed Burgers vector–line vector pairs, as described in the manuscript.</p>
+<p>The workflow implements an <b>inverse design framework</b>, where a target soliton network is specified and the corresponding heterodeformation and atomic configuration are constructed.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md2"></a>
-Inverse design examples for the manuscript</h1>
-<p>This README lists the Burgers-vector/line-vector pairs used in the paper and explains how to run the accompanying script.</p>
-<p>The script <code><a class="el" href="heterodeformation_8py.html">heterodeformation.py</a></code> contains <b>one example only</b>. To reproduce another case from the paper, edit the following quantities in the <b>example block</b>:</p>
+Repository structure</h1>
+<p>The implementation is organized as follows:</p>
 <ul>
-<li><code>A</code> (choose graphene or MoS$_2$ lattice constant)</li>
-<li><code>b1u</code>, <code>b2u</code>, <code>b3u</code></li>
-<li><code>l1u</code>, <code>l2u</code> (the script sets <code>l3u = -(l1u + l2u)</code>)</li>
+<li><code><a class="el" href="inverse__design__core_8py.html">inverse_design_core.py</a></code> <br  />
+ Computes the deformation gradient (F) from Burgers vectors and line directions using exact arithmetic.</li>
+<li><code><a class="el" href="layers_8py.html">layers.py</a></code> <br  />
+ Defines 2D multilattices (Bravais lattice + basis atoms).</li>
+<li><code><a class="el" href="bilayers_8py.html">bilayers.py</a></code> <br  />
+ Defines bilayer structures and applies heterodeformations.</li>
+<li><code><a class="el" href="lammps__writer_8py.html">lammps_writer.py</a></code> <br  />
+ Writes LAMMPS data files from generated atomic configurations.</li>
+<li><code><a class="el" href="example__inverse__design_8py.html">example_inverse_design.py</a></code> <br  />
+ A minimal working example demonstrating the full workflow.</li>
+</ul>
+<hr  />
+<h1><a class="anchor" id="autotoc_md4"></a>
+Running the example</h1>
+<p>First, build the oILAB library and Python bindings from the repository root:</p>
+<div class="fragment"><div class="line">cmake -B build -S .</div>
+<div class="line">cmake --build build</div>
+</div><!-- fragment --><p>Ensure the Python bindings are available:</p>
+<div class="fragment"><div class="line">export PYTHONPATH=build/bindings</div>
+</div><!-- fragment --><p>Then run the example script:</p>
+<div class="fragment"><div class="line">python example_inverse_design.py</div>
+</div><!-- fragment --><p>The script will:</p><ol type="1">
+<li>Compute the deformation gradient (F) from prescribed network data</li>
+<li>Construct a heterodeformed bilayer</li>
+<li>Compute the CSL using oILAB</li>
+<li>Generate atomic coordinates</li>
+<li>Write a LAMMPS data file (<code>initial.data</code>)</li>
+</ol>
+<hr  />
+<h1><a class="anchor" id="autotoc_md6"></a>
+Modifying the example</h1>
+<p>The script <code><a class="el" href="example__inverse__design_8py.html">example_inverse_design.py</a></code> contains <b>a single example</b>.</p>
+<p>To reproduce other cases from the manuscript, edit the <b>example block</b>:</p>
+<ul>
+<li>Choose the bilayer: <div class="fragment"><div class="line">bilayer = make_ab_graphene_bilayer()</div>
+<div class="line"><span class="comment"># or</span></div>
+<div class="line">bilayer = make_aa_prime_mos2_bilayer()</div>
+</div><!-- fragment --></li>
+<li>Specify:<ul>
+<li><code>b1u</code>, <code>b2u</code>, <code>b3u</code> (Burgers vectors)</li>
+<li><code>l1u</code>, <code>l2u</code> (line directions)</li>
 <li><code>beta</code></li>
 </ul>
-<p>Use:</p><ul>
-<li><code>beta = 1</code> for 1D networks and 2D triangular networks</li>
-<li><code>beta = 3</code> for 2D honeycomb networks</li>
+</li>
 </ul>
-<p>If <b>all</b> line vectors have integer lattice coordinates, the script computes the simulation cell vectors directly as <code>ell^1 = A l^1</code> and <code>ell^2 = A l^2</code>. If <b>any</b> line vector has non-integer lattice coordinates, the script uses the <b>oILAB Python bindings</b> (<code>pyoilab</code>) to compute the CSL primitive vectors.</p>
+<p>The third line direction is automatically set as: </p><div class="fragment"><div class="line">l3u = -(l1u + l2u)</div>
+</div><!-- fragment --><p>Use:</p><ul>
+<li><code>beta = 1</code> for 1D and triangular networks</li>
+<li><code>beta = 3</code> for honeycomb networks</li>
+</ul>
 <hr  />
-<h2><a class="anchor" id="autotoc_md4"></a>
+<h1><a class="anchor" id="autotoc_md8"></a>
+CSL construction</h1>
+<p>The coincidence site lattice (CSL) is computed using the oILAB Python bindings.</p>
+<p>The script constructs a <code>BiCrystal2D</code> object and obtains the CSL primitive vectors:</p>
+<div class="fragment"><div class="line">bicrystal = hetero_bilayer.bicrystal</div>
+</div><!-- fragment --><p>The simulation cell is defined using CSL lattice vectors:</p>
+<div class="fragment"><div class="line">ell1 = gb.LatticeVector2D([1, 0], bicrystal.csl)</div>
+<div class="line">ell2 = gb.LatticeVector2D([0, 1], bicrystal.csl)</div>
+</div><!-- fragment --><p>The user may replace these with any integer combination of CSL basis vectors.</p>
+<hr  />
+<h1><a class="anchor" id="autotoc_md10"></a>
+Bilayer conventions</h1>
+<p>The atomic configurations are constructed to be consistent with the LAMMPS scripts used in this work.</p>
+<h2><a class="anchor" id="autotoc_md11"></a>
 Bilayer graphene</h2>
+<ul>
+<li>Top layer: atom type <code>1</code></li>
+<li>Bottom layer: atom type <code>2</code></li>
+</ul>
+<h2><a class="anchor" id="autotoc_md12"></a>
+Bilayer MoS$_2$</h2>
+<ul>
+<li>Top layer: atom types <code>1, 2, 3</code></li>
+<li>Bottom layer: atom types <code>4, 5, 6</code></li>
+</ul>
+<p>These conventions are required for compatibility with the provided LAMMPS input scripts.</p>
+<hr  />
+<h1><a class="anchor" id="autotoc_md14"></a>
+Examples from the manuscript</h1>
+<p>Below are the Burgers vector–line vector pairs used in the paper.</p>
+<hr  />
+<h1><a class="anchor" id="autotoc_md16"></a>
+Bilayer graphene</h1>
 <p>Structure matrix:</p>
 <div class="fragment"><div class="line">A = (2.46 / 2.0) * np.array([[0.0, -np.sqrt(3.0)],</div>
 <div class="line">                             [2.0, -1.0]], dtype=float)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md5"></a>
-1D network (Fig. 6b)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md17"></a>
+1D network (Fig. 6b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
@@ -148,8 +204,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(569, 1), Fraction(567, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md6"></a>
-2D simple twist (Figs. 2a, 7)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md18"></a>
+2D simple twist (Figs. 2a, 7)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -158,8 +214,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(-111, 1), Fraction(110, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md7"></a>
-2D complex twist (Fig. 9a)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md19"></a>
+2D complex twist (Fig. 9a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -168,8 +224,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(-154, 3), Fraction(151, 3)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md8"></a>
-2D moir\'e degeneracy 1 (Fig. 8a)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md20"></a>
+2D moir\'e degeneracy 1 (Fig. 8a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -178,8 +234,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(-281, 1), Fraction(-1, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md9"></a>
-2D moir\'e degeneracy 2 (Fig. 8b)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md21"></a>
+2D moir\'e degeneracy 2 (Fig. 8b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -188,8 +244,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(-280, 1), Fraction(-281, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md10"></a>
-2D moir\'e degeneracy 3 (Fig. 8c)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md22"></a>
+2D moir\'e degeneracy 3 (Fig. 8c)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -198,8 +254,8 @@ Bilayer graphene</h2>
 <div class="line">l2u = np.array([Fraction(-279, 1), Fraction(-561, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md11"></a>
-2D complex strain (Fig. 9b)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
+2D complex strain (Fig. 9b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(2, 3), Fraction(1, 3)], dtype=object)</div>
@@ -209,13 +265,13 @@ Bilayer graphene</h2>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
 </div><!-- fragment --><hr  />
-<h2><a class="anchor" id="autotoc_md13"></a>
-Bilayer MoS$_2$</h2>
+<h1><a class="anchor" id="autotoc_md25"></a>
+Bilayer MoS$_2$</h1>
 <p>Structure matrix:</p>
 <div class="fragment"><div class="line">A = (3.19702 / 2.0) * np.array([[0.0, -np.sqrt(3.0)],</div>
 <div class="line">                                [2.0, -1.0]], dtype=float)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md14"></a>
-1D network (Fig. 6a)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md26"></a>
+1D network (Fig. 6a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(0, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
@@ -224,8 +280,8 @@ Bilayer MoS$_2$</h2>
 <div class="line">l2u = np.array([Fraction(121, 1), Fraction(119, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md15"></a>
-2D twist (Fig. 2b)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md27"></a>
+2D twist (Fig. 2b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(-1, 1)], dtype=object)</div>
@@ -234,8 +290,8 @@ Bilayer MoS$_2$</h2>
 <div class="line">l2u = np.array([Fraction(331, 3), Fraction(332, 3)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md16"></a>
-2D moir\'e degeneracy 1 (Fig. 10a)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md28"></a>
+2D moir\'e degeneracy 1 (Fig. 10a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(-1, 1)], dtype=object)</div>
@@ -244,8 +300,8 @@ Bilayer MoS$_2$</h2>
 <div class="line">l2u = np.array([Fraction(65, 1), Fraction(64, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md17"></a>
-2D moir\'e degeneracy 2 (Fig. 10b)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md29"></a>
+2D moir\'e degeneracy 2 (Fig. 10b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(-1, 1)], dtype=object)</div>
@@ -254,8 +310,8 @@ Bilayer MoS$_2$</h2>
 <div class="line">l2u = np.array([Fraction(87, 1), Fraction(107, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md18"></a>
-2D complex strain (Fig. 11)</h3>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md30"></a>
+2D complex strain (Fig. 11)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b3u = np.array([Fraction(0, 1), Fraction(-1, 1)], dtype=object)</div>
@@ -265,12 +321,13 @@ Bilayer MoS$_2$</h2>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
 </div><!-- fragment --><hr  />
-<h2><a class="anchor" id="autotoc_md20"></a>
-Notes</h2>
+<h1><a class="anchor" id="autotoc_md32"></a>
+Notes</h1>
 <ol type="1">
-<li>The script automatically sets <code>l3u = -(l1u + l2u)</code>.</li>
-<li>If all line vectors are integral in lattice coordinates, the simulation cell vectors are the line vectors themselves.</li>
-<li>If at least one line vector has non-integer lattice coordinates, install the oILAB Python bindings and rerun the script to obtain the CSL primitive vectors. </li>
+<li>The script computes (l^3 = -(l^1 + l^2)) automatically.</li>
+<li>The deformation gradient is computed using exact arithmetic before conversion to floating point.</li>
+<li>CSL vectors are obtained through oILAB and define the simulation cell.</li>
+<li>Atomic configurations are written in LAMMPS-compatible format. </li>
 </ol>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
@@ -278,7 +335,7 @@ Notes</h2>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Mar 21 2026 00:32:59 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sun Mar 22 2026 23:53:33 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

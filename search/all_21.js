@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['_7eorderedtuplet_0',['~OrderedTuplet',['../classgb_l_a_b_1_1_ordered_tuplet.html#abf554d9af71f28935933b4a927ea6e54',1,'gbLAB::OrderedTuplet']]]
+  ['z_5frel_0',['z_rel',['../classlayers_1_1_basis_atom.html#a2a7cf89f5004048803fb98b71d158938',1,'layers::BasisAtom']]]
 ];

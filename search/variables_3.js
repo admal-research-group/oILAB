@@ -9,8 +9,9 @@ var searchData=
   ['derivedfunction_6',['derivedFunction',['../classgb_l_a_b_1_1_function.html#a812d39409f33b2c5dcf2d6f864e16557',1,'gbLAB::Function']]],
   ['derivedoperator_7',['derivedOperator',['../classgb_l_a_b_1_1_operator.html#a7aafc3deb3e828f922daf3fe9e104b4f',1,'gbLAB::Operator']]],
   ['dir_8',['dir',['../structgb_l_a_b_1_1_rational_lattice_direction.html#a99631f7fc04e114817ae93c5d17059e3',1,'gbLAB::RationalLatticeDirection::dir'],['../structgb_l_a_b_1_1_rational_reciprocal_lattice_direction.html#a03fb5c193cdfe7210fb849ae784155f2',1,'gbLAB::RationalReciprocalLatticeDirection::dir']]],
-  ['domainsize_9',['domainSize',['../classgb_l_a_b_1_1_function.html#a9d5cfb82c1383d7350b6cc8b8bcb76c4',1,'gbLAB::Function']]],
-  ['dscl_10',['dscl',['../classgb_l_a_b_1_1_bi_crystal.html#a255f64c2f26fb61cd60cb6e586d77180',1,'gbLAB::BiCrystal']]],
-  ['dscl2dsclp_11',['dscl2dsclp',['../classgb_l_a_b_1_1_bi_crystal.html#af07e810b8e9eb9279a3a2b4cff9cde60',1,'gbLAB::BiCrystal']]],
-  ['dsclp_12',['dsclp',['../classgb_l_a_b_1_1_bi_crystal.html#abbe3cbe392de2544619eefd6bf740d3d',1,'gbLAB::BiCrystal']]]
+  ['do_5frotate_9',['do_rotate',['../namespaceexample__inverse__design.html#a8e3bdd1d095e94afa49f148fc7613c9e',1,'example_inverse_design']]],
+  ['domainsize_10',['domainSize',['../classgb_l_a_b_1_1_function.html#a9d5cfb82c1383d7350b6cc8b8bcb76c4',1,'gbLAB::Function']]],
+  ['dscl_11',['dscl',['../classgb_l_a_b_1_1_bi_crystal.html#a255f64c2f26fb61cd60cb6e586d77180',1,'gbLAB::BiCrystal']]],
+  ['dscl2dsclp_12',['dscl2dsclp',['../classgb_l_a_b_1_1_bi_crystal.html#af07e810b8e9eb9279a3a2b4cff9cde60',1,'gbLAB::BiCrystal']]],
+  ['dsclp_13',['dsclp',['../classgb_l_a_b_1_1_bi_crystal.html#abbe3cbe392de2544619eefd6bf740d3d',1,'gbLAB::BiCrystal']]]
 ];

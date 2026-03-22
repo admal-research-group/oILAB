@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['smithdecomposition_2eh_0',['SmithDecomposition.h',['../_smith_decomposition_8h.html',1,'']]],
-  ['sortindices_2eh_1',['sortIndices.h',['../sort_indices_8h.html',1,'']]],
-  ['staticid_2eh_2',['StaticID.h',['../_static_i_d_8h.html',1,'']]]
+  ['terminalcolors_2eh_0',['TerminalColors.h',['../_terminal_colors_8h.html',1,'']]],
+  ['textfileparser_2eh_1',['TextFileParser.h',['../_text_file_parser_8h.html',1,'']]]
 ];

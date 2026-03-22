@@ -1,6 +1,8 @@
 var hierarchy =
 [
+    [ "layers.BasisAtom", "classlayers_1_1_basis_atom.html", null ],
     [ "gbLAB::BestRationalApproximation", "classgb_l_a_b_1_1_best_rational_approximation.html", null ],
+    [ "bilayers.Bilayer2D", "classbilayers_1_1_bilayer2_d.html", null ],
     [ "gbLAB::DiophantineSolver< IntScalarType >", "classgb_l_a_b_1_1_diophantine_solver.html", null ],
     [ "gbLAB::DislocationDipole", "classgb_l_a_b_1_1_dislocation_dipole.html", null ],
     [ "gbLAB::Ensemble< StateType, SystemType, Derived >", "classgb_l_a_b_1_1_ensemble.html", null ],
@@ -53,9 +55,11 @@ var hierarchy =
     ] ],
     [ "gbLAB::IntegerLattice< dim >", "classgb_l_a_b_1_1_integer_lattice.html", null ],
     [ "gbLAB::IntegerMath< IntScalarType >", "structgb_l_a_b_1_1_integer_math.html", null ],
+    [ "inverse_design_core.InverseDesignResult", "classinverse__design__core_1_1_inverse_design_result.html", null ],
     [ "range< T >::iter", "classrange_1_1iter.html", null ],
     [ "gbLAB::LatticeCore< dim >", "structgb_l_a_b_1_1_lattice_core.html", null ],
     [ "gbLAB::LatticeFunction< Scalar, dim >", "classgb_l_a_b_1_1_lattice_function.html", null ],
+    [ "layers.Layer2D", "classlayers_1_1_layer2_d.html", null ],
     [ "gbLAB::LLL", "classgb_l_a_b_1_1_l_l_l.html", null ],
     [ "Eigen::Matrix", null, [
       [ "Rotation< dim >", "class_rotation.html", null ],

@@ -1,24 +1,6 @@
 var searchData=
 [
-  ['randominteger_2eh_0',['randomInteger.h',['../random_integer_8h.html',1,'']]],
-  ['range_2eh_1',['range.h',['../range_8h.html',1,'']]],
-  ['rational_2eh_2',['Rational.h',['../_rational_8h.html',1,'']]],
-  ['rationalapproximations_2eh_3',['RationalApproximations.h',['../_rational_approximations_8h.html',1,'']]],
-  ['rationallatticedirection_2ecpp_4',['RationalLatticeDirection.cpp',['../_rational_lattice_direction_8cpp.html',1,'']]],
-  ['rationallatticedirection_2eh_5',['RationalLatticeDirection.h',['../_rational_lattice_direction_8h.html',1,'']]],
-  ['rationalmatrix_2ecpp_6',['RationalMatrix.cpp',['../_rational_matrix_8cpp.html',1,'']]],
-  ['rationalmatrix_2eh_7',['RationalMatrix.h',['../_rational_matrix_8h.html',1,'']]],
-  ['rationalreciprocallatticedirection_2ecpp_8',['RationalReciprocalLatticeDirection.cpp',['../_rational_reciprocal_lattice_direction_8cpp.html',1,'']]],
-  ['rationalreciprocallatticedirection_2eh_9',['RationalReciprocalLatticeDirection.h',['../_rational_reciprocal_lattice_direction_8h.html',1,'']]],
-  ['readme_2emd_10',['README.md',['../_r_e_a_d_m_e_8md.html',1,'']]],
-  ['reciprocallatticedirection_2ecpp_11',['ReciprocalLatticeDirection.cpp',['../_reciprocal_lattice_direction_8cpp.html',1,'']]],
-  ['reciprocallatticedirection_2eh_12',['ReciprocalLatticeDirection.h',['../_reciprocal_lattice_direction_8h.html',1,'']]],
-  ['reciprocallatticedirectionbindings_2eh_13',['ReciprocalLatticeDirectionBindings.h',['../_reciprocal_lattice_direction_bindings_8h.html',1,'']]],
-  ['reciprocallatticevector_2ecpp_14',['ReciprocalLatticeVector.cpp',['../_reciprocal_lattice_vector_8cpp.html',1,'']]],
-  ['reciprocallatticevector_2eh_15',['ReciprocalLatticeVector.h',['../_reciprocal_lattice_vector_8h.html',1,'']]],
-  ['reciprocallatticevectorbindings_2eh_16',['ReciprocalLatticeVectorBindings.h',['../_reciprocal_lattice_vector_bindings_8h.html',1,'']]],
-  ['referencestate_2eh_17',['ReferenceState.h',['../_reference_state_8h.html',1,'']]],
-  ['rlll_2ecpp_18',['RLLL.cpp',['../_r_l_l_l_8cpp.html',1,'']]],
-  ['rlll_2eh_19',['RLLL.h',['../_r_l_l_l_8h.html',1,'']]],
-  ['rotation_2eh_20',['Rotation.h',['../_rotation_8h.html',1,'']]]
+  ['smithdecomposition_2eh_0',['SmithDecomposition.h',['../_smith_decomposition_8h.html',1,'']]],
+  ['sortindices_2eh_1',['sortIndices.h',['../sort_indices_8h.html',1,'']]],
+  ['staticid_2eh_2',['StaticID.h',['../_static_i_d_8h.html',1,'']]]
 ];

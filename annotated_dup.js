@@ -1,5 +1,8 @@
 var annotated_dup =
 [
+    [ "bilayers", "namespacebilayers.html", [
+      [ "Bilayer2D", "classbilayers_1_1_bilayer2_d.html", "classbilayers_1_1_bilayer2_d" ]
+    ] ],
     [ "Eigen", "namespace_eigen.html", [
       [ "NumTraits< gbLAB::Rational< IntScalarType > >", "struct_eigen_1_1_num_traits_3_01gb_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4.html", "struct_eigen_1_1_num_traits_3_01gb_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4" ]
     ] ],
@@ -72,6 +75,13 @@ var annotated_dup =
       [ "StringToScalar< unsigned long long >", "structgb_l_a_b_1_1_string_to_scalar_3_01unsigned_01long_01long_01_4.html", "structgb_l_a_b_1_1_string_to_scalar_3_01unsigned_01long_01long_01_4" ],
       [ "TextFileParser", "classgb_l_a_b_1_1_text_file_parser.html", "classgb_l_a_b_1_1_text_file_parser" ],
       [ "XTuplet", "classgb_l_a_b_1_1_x_tuplet.html", "classgb_l_a_b_1_1_x_tuplet" ]
+    ] ],
+    [ "inverse_design_core", "namespaceinverse__design__core.html", [
+      [ "InverseDesignResult", "classinverse__design__core_1_1_inverse_design_result.html", "classinverse__design__core_1_1_inverse_design_result" ]
+    ] ],
+    [ "layers", "namespacelayers.html", [
+      [ "BasisAtom", "classlayers_1_1_basis_atom.html", "classlayers_1_1_basis_atom" ],
+      [ "Layer2D", "classlayers_1_1_layer2_d.html", "classlayers_1_1_layer2_d" ]
     ] ],
     [ "pyoilab", "namespacepyoilab.html", [
       [ "PyLatticeDirection", "classpyoilab_1_1_py_lattice_direction.html", "classpyoilab_1_1_py_lattice_direction" ],

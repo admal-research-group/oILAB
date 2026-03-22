@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['_7eorderedtuplet_0',['~OrderedTuplet',['../classgb_l_a_b_1_1_ordered_tuplet.html#abf554d9af71f28935933b4a927ea6e54',1,'gbLAB::OrderedTuplet']]]
+  ['xtuplet_0',['XTuplet',['../classgb_l_a_b_1_1_x_tuplet.html#a1d77109a291324a53b6c9a7e0b3b50f2',1,'gbLAB::XTuplet']]]
 ];
