@@ -1,0 +1,68 @@
+# LAMMPS Input File for Forming Triclinic Box and Creating Moire for Bi Layer Graphene
+# Calculates Gamma Energy Surface using MEAM Potential
+# Md Tusher Ahmed, 2022
+
+# ---------- Initialize Simulation (Create Simulation Box and Atoms) --------------------- 
+
+#60.760391 -185.346758 -1.229834 -91.608311 -161.129918 0.016512 -0.028166 0.016137 0.028383 -0.872585 0.488463 0.013271 -0.999912
+
+clear
+units metal
+dimension 3
+boundary p p p
+processors * * 1
+atom_style atomic
+
+read_data initial.data
+
+#write_dump all custom dump_CSL.atom id type x y z 
+
+# ---------- Define Interatomic Potential --------------------- 
+
+mass 1 12.0107
+mass 2 12.0107
+
+# Separate atom groups
+group g_top_graphene type 1
+group g_bottom_graphene type 2
+
+######################## Potential defition ########################
+pair_style  hybrid/overlay  rebo  kolmogorov/crespi/z 14.0
+####################################################################
+pair_coeff  * * rebo               	 CH.rebo      C  C  # chemical
+pair_coeff 1 2 kolmogorov/crespi/z  CC.KC      C C  # long-range
+####################################################################
+
+# skin = 2.0, and bin algorithm is used to build the neighbor list
+neighbor 2.0 bin
+neigh_modify every 1 delay 0 check yes
+
+compute   	0 all pair rebo
+compute  	1 all pair kolmogorov/crespi/z
+compute 2 all pe/atom 
+compute 3 all reduce sum c_2
+
+compute 14 g_top_graphene com
+compute 15 g_bottom_graphene com
+compute 16 all com
+
+compute 4x g_top_graphene reduce sum fx
+
+compute 5x g_bottom_graphene reduce sum fx
+
+compute 4y g_top_graphene reduce sum fy
+
+compute 5y g_bottom_graphene reduce sum fy
+
+thermo_style custom step temp epair
+thermo_modify format line "%ld %1.5g %15.10g"
+thermo 1000
+
+dump 2 all custom 10000 dump_bilayer_strain_*.atom id type x y z c_2
+
+#run 0
+
+min_style fire
+minimize 1e-20 1e-20 50000000 50000000
+
+write_dump all custom dump_relax.atom id type x y z 

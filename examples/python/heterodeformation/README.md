@@ -1,62 +1,131 @@
-This directory contains example scripts used to construct strain soliton networks from prescribed Burgers-vector / line-vector pairs, as described in the manuscript.
+# Inverse design of heterodeformations for strain soliton networks
 
-## Running the examples
+This directory contains example scripts and data used to construct strain soliton networks from prescribed Burgers vector–line vector pairs, as described in the manuscript.
 
-First, configure and build oILAB from the repository root:
+The workflow implements an **inverse design framework**, where a target soliton network is specified and the corresponding heterodeformation and atomic configuration are constructed.
+
+---
+
+## Repository structure
+
+The implementation is organized as follows:
+
+- `inverse_design_core.py`  
+  Computes the deformation gradient \(F\) from Burgers vectors and line directions using exact arithmetic.
+
+- `layers.py`  
+  Defines 2D multilattices (Bravais lattice + basis atoms).
+
+- `bilayers.py`  
+  Defines bilayer structures and applies heterodeformations.
+
+- `lammps_writer.py`  
+  Writes LAMMPS data files from generated atomic configurations.
+
+- `example_inverse_design.py`  
+  A minimal working example demonstrating the full workflow.
+
+---
+
+## Running the example
+
+First, build the oILAB library and Python bindings from the repository root:
 
 ```bash
 cmake -B build -S .
 cmake --build build
 ```
 
-Next, navigate to the heterostrain example directory in the build tree:
+Ensure the Python bindings are available:
 
 ```bash
-cd build/examples/python/heterostrain
+export PYTHONPATH=build/bindings
 ```
 
-Run the script using:
+Then run the example script:
 
 ```bash
-PYTHONPATH=../../../bindings python heterostrain.py
+python example_inverse_design.py
 ```
 
-The compiled Python extension module `pyoilab` is located in:
-
-```
-build/bindings/
-```
-
-and is made accessible via `PYTHONPATH`.
-
-All output files are written to the current working directory:
-
-```
-build/examples/python/heterostrain/
-```
-
-ensuring that the source tree remains unchanged.
+The script will:
+1. Compute the deformation gradient \(F\) from prescribed network data
+2. Construct a heterodeformed bilayer
+3. Compute the CSL using oILAB
+4. Generate atomic coordinates
+5. Write a LAMMPS data file (`initial.data`)
 
 ---
 
-# Inverse design examples for the manuscript
+## Modifying the example
 
-This README lists the Burgers-vector/line-vector pairs used in the paper and explains how to run the accompanying script.
+The script `example_inverse_design.py` contains **a single example**.
 
-The script `heterodeformation.py` contains **one example only**. To reproduce another case from the paper, edit the following quantities in the **example block**:
+To reproduce other cases from the manuscript, edit the **example block**:
 
-- `A` (choose graphene or MoS$_2$ lattice constant)
-- `b1u`, `b2u`, `b3u`
-- `l1u`, `l2u` (the script sets `l3u = -(l1u + l2u)`)
-- `beta`
+- Choose the bilayer:
+  ```python
+  bilayer = make_ab_graphene_bilayer()
+  # or
+  bilayer = make_aa_prime_mos2_bilayer()
+  ```
+
+- Specify:
+  - `b1u`, `b2u`, `b3u` (Burgers vectors)
+  - `l1u`, `l2u` (line directions)
+  - `beta`
+
+The third line direction is automatically set as:
+```python
+l3u = -(l1u + l2u)
+```
 
 Use:
-- `beta = 1` for 1D networks and 2D triangular networks
-- `beta = 3` for 2D honeycomb networks
+- `beta = 1` for 1D and triangular networks
+- `beta = 3` for honeycomb networks
 
-If **all** line vectors have integer lattice coordinates, the script computes the simulation cell vectors directly as
-`ell^1 = A l^1` and `ell^2 = A l^2`.
-If **any** line vector has non-integer lattice coordinates, the script uses the **oILAB Python bindings** (`pyoilab`) to compute the CSL primitive vectors.
+---
+
+## CSL construction
+
+The coincidence site lattice (CSL) is computed using the oILAB Python bindings.
+
+The script constructs a `BiCrystal2D` object and obtains the CSL primitive vectors:
+
+```python
+bicrystal = hetero_bilayer.bicrystal
+```
+
+The simulation cell is defined using CSL lattice vectors:
+
+```python
+ell1 = gb.LatticeVector2D([1, 0], bicrystal.csl)
+ell2 = gb.LatticeVector2D([0, 1], bicrystal.csl)
+```
+
+The user may replace these with any integer combination of CSL basis vectors.
+
+---
+
+## Bilayer conventions
+
+The atomic configurations are constructed to be consistent with the LAMMPS scripts used in this work.
+
+### Bilayer graphene
+- Top layer: atom type `1`
+- Bottom layer: atom type `2`
+
+### Bilayer MoS$_2$
+- Top layer: atom types `1, 2, 3`
+- Bottom layer: atom types `4, 5, 6`
+
+These conventions are required for compatibility with the provided LAMMPS input scripts.
+
+---
+
+## Examples from the manuscript
+
+Below are the Burgers vector–line vector pairs used in the paper.
 
 ---
 
@@ -240,6 +309,7 @@ beta = Fraction(3, 1)
 
 ## Notes
 
-1. The script automatically sets `l3u = -(l1u + l2u)`.
-2. If all line vectors are integral in lattice coordinates, the simulation cell vectors are the line vectors themselves.
-3. If at least one line vector has non-integer lattice coordinates, install the oILAB Python bindings and rerun the script to obtain the CSL primitive vectors.
+1. The script computes \(l^3 = -(l^1 + l^2)\) automatically.
+2. The deformation gradient is computed using exact arithmetic before conversion to floating point.
+3. CSL vectors are obtained through oILAB and define the simulation cell.
+4. Atomic configurations are written in LAMMPS-compatible format.

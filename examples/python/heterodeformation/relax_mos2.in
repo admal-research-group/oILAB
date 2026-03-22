@@ -1,0 +1,52 @@
+units           metal
+atom_style      full
+boundary        p p f
+
+read_data       initial.data
+
+group top type 1 2 3
+group bottom type 4 5 6
+
+displace_atoms all move 0.0 0.0 8 units box
+
+write_dump all custom dump_CSL.atom id type x y z
+
+#quit
+
+mass            * 32.065  # mass of sulphur atom , uint: a.u.=1.66X10^(-27)kg
+mass            1 95.94   # mass of molebdenum atom , uint: a.u.=1.66X10^(-27)kg
+mass            4 95.94
+
+# Define potentials
+pair_style     	hybrid/overlay sw/mod sw/mod ilp/tmd 16.0
+pair_coeff     	* * sw/mod 1 tmd.sw.mod Mo S S NULL NULL NULL
+pair_coeff     	* * sw/mod 2 tmd.sw.mod NULL NULL NULL Mo S S
+pair_coeff     	* * ilp/tmd  MoS2.ILP Mo S S Mo S S
+
+# Calculate the pair potential
+compute   	0 all pair ilp/tmd
+compute   	1 all pair sw/mod 1
+compute   	2 all pair sw/mod 2
+variable  	SW1 equal c_1
+variable  	SW2 equal c_2
+variable  	ILP equal c_0
+variable  	Eatt equal c_0[1]
+variable  	Erep equal c_0[2]
+
+compute pe_at all pe/atom
+compute pe_tot all reduce sum c_pe_at
+
+
+thermo_style    custom step etotal pe ke v_SW1 v_SW2 v_ILP v_Erep v_Eatt temp c_pe_tot
+
+thermo          1000
+thermo_modify   flush yes
+
+# -----------------Dumping Data for Visualisation--------
+dump 3 all custom 10000 dump.7.* id type x y z c_pe_at
+dump_modify 3 sort id format line "%d %d %10.9g %10.9g %10.9g %10.9g"
+
+min_style fire
+minimize 1e-20 1e-20 50000 50000
+
+write_dump all custom dump_relax.atom id type x y z
