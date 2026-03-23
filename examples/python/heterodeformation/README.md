@@ -25,6 +25,12 @@ The implementation is organized as follows:
 - `example_inverse_design.py`  
   A minimal working example demonstrating the full workflow.
 
+- `relax_graphene.in`  
+  LAMMPS input script for relaxation of bilayer graphene.
+
+- `relax_mos2.in`  
+  LAMMPS input script for relaxation of bilayer MoS$_2$.
+
 ---
 
 ## Running the example
@@ -54,6 +60,27 @@ The script will:
 3. Compute the CSL using oILAB
 4. Generate atomic coordinates
 5. Write a LAMMPS data file (`initial.data`)
+
+---
+
+## LAMMPS relaxation scripts
+
+This repository includes LAMMPS input scripts used to relax the generated bilayer structures:
+
+- `relax_graphene.in` — relaxation of bilayer graphene using REBO + Kolmogorov–Crespi potentials  
+- `relax_mos2.in` — relaxation of bilayer MoS$_2$ using SW + interlayer potential (ILP)
+
+These scripts take the generated `initial.data` file as input and perform energy minimization to obtain relaxed configurations.
+
+---
+
+### Usage
+
+After generating the configuration (`initial.data`) using the Python script, run LAMMPS:
+
+```bash
+mpirun -np 4 lmp_mpi -in relax_graphene.in
+```
 
 ---
 
