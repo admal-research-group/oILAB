@@ -29,30 +29,33 @@ var NAVTREE =
     [ "Inverse design of heterodeformations for strain soliton networks", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html", [
       [ "Repository structure", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md2", null ],
       [ "Running the example", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md4", null ],
-      [ "Modifying the example", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md6", null ],
-      [ "CSL construction", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md8", null ],
-      [ "Bilayer conventions", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md10", [
-        [ "Bilayer graphene", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md11", null ],
-        [ "Bilayer MoS$_2$", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md12", null ]
+      [ "LAMMPS relaxation scripts", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md6", [
+        [ "Usage", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md8", null ]
       ] ],
-      [ "Examples from the manuscript", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md14", null ],
-      [ "Bilayer graphene", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md16", [
-        [ "1D network (Fig. 6b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md17", null ],
-        [ "2D simple twist (Figs. 2a, 7)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md18", null ],
-        [ "2D complex twist (Fig. 9a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md19", null ],
-        [ "2D moir\\'e degeneracy 1 (Fig. 8a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md20", null ],
-        [ "2D moir\\'e degeneracy 2 (Fig. 8b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md21", null ],
-        [ "2D moir\\'e degeneracy 3 (Fig. 8c)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md22", null ],
-        [ "2D complex strain (Fig. 9b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md23", null ]
+      [ "Modifying the example", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md10", null ],
+      [ "CSL construction", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md12", null ],
+      [ "Bilayer conventions", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md14", [
+        [ "Bilayer graphene", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md15", null ],
+        [ "Bilayer MoS$_2$", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md16", null ]
       ] ],
-      [ "Bilayer MoS$_2$", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md25", [
-        [ "1D network (Fig. 6a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md26", null ],
-        [ "2D twist (Fig. 2b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md27", null ],
-        [ "2D moir\\'e degeneracy 1 (Fig. 10a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md28", null ],
-        [ "2D moir\\'e degeneracy 2 (Fig. 10b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md29", null ],
-        [ "2D complex strain (Fig. 11)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md30", null ]
+      [ "Examples from the manuscript", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md18", null ],
+      [ "Bilayer graphene", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md20", [
+        [ "1D network (Fig. 6b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md21", null ],
+        [ "2D simple twist (Figs. 2a, 7)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md22", null ],
+        [ "2D complex twist (Fig. 9a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md23", null ],
+        [ "2D moir\\'e degeneracy 1 (Fig. 8a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md24", null ],
+        [ "2D moir\\'e degeneracy 2 (Fig. 8b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md25", null ],
+        [ "2D moir\\'e degeneracy 3 (Fig. 8c)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md26", null ],
+        [ "2D complex strain (Fig. 9b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md27", null ]
       ] ],
-      [ "Notes", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md32", null ]
+      [ "Bilayer MoS$_2$", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md29", [
+        [ "1D network (Fig. 6a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md30", null ],
+        [ "2D twist (Fig. 2b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md31", null ],
+        [ "2D moir\\'e degeneracy 1 (Fig. 10a)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md32", null ],
+        [ "2D moir\\'e degeneracy 2 (Fig. 10b)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md33", null ],
+        [ "2D complex strain (Fig. 11)", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md34", null ]
+      ] ],
+      [ "Notes", "md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md36", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
@@ -97,8 +100,8 @@ var NAVTREEINDEX =
 "classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a1601a7c070f7cfdf2186ac8cf59305c5",
 "classinverse__design__core_1_1_inverse_design_result.html#a6a77019db90e464793dd7e75bddc8ce7",
 "dir_cab52edb0a880aba27eada31817ee90d.html",
-"namespaceexample__inverse__design.html#a4b96722d6b0b4b962f6488f085d821cf",
-"structgb_l_a_b_1_1_lattice_direction.html#aa40143d2222fb8d70dc8f43ab4316e8b"
+"namespaceexample__inverse__design.html#a4873d5653e8657ca548861fca02fa348",
+"structgb_l_a_b_1_1_lattice_direction.html#a903c0584a7a1c2d2f2f317dbc9d8a786"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

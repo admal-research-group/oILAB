@@ -77,7 +77,7 @@ var searchData=
   ['gettheta_74',['getTheta',['../classgb_l_a_b_1_1_landau_wang_t_p.html#a096f9db8560810d546eac2a7c3fc5d0f',1,'gbLAB::LandauWangTP']]],
   ['grammatrix_75',['grammatrix',['../classgb_l_a_b_1_1_gram_matrix.html#acf5c780c18985f5e1b43ce5568e88a85',1,'gbLAB::GramMatrix::GramMatrix()'],['../classgb_l_a_b_1_1_gram_matrix.html',1,'gbLAB::GramMatrix&lt; T, N &gt;']]],
   ['grammatrix_2eh_76',['GramMatrix.h',['../_gram_matrix_8h.html',1,'']]],
-  ['graphene_77',['graphene',['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md11',1,'Bilayer graphene'],['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md16',1,'Bilayer graphene']]],
+  ['graphene_77',['graphene',['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md15',1,'Bilayer graphene'],['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md20',1,'Bilayer graphene']]],
   ['greenboldcolor_78',['greenBoldColor',['../namespacegb_l_a_b.html#a35a52865487e1e4f8eddf670f77c4f9f',1,'gbLAB']]],
   ['greencolor_79',['greenColor',['../namespacegb_l_a_b.html#a97b7c8d3a8abbabc7a944146aa3fb8ba',1,'gbLAB']]]
 ];

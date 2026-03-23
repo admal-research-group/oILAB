@@ -117,6 +117,10 @@ Repository structure</h1>
  Writes LAMMPS data files from generated atomic configurations.</li>
 <li><code><a class="el" href="example__inverse__design_8py.html">example_inverse_design.py</a></code> <br  />
  A minimal working example demonstrating the full workflow.</li>
+<li><code>relax_graphene.in</code> <br  />
+ LAMMPS input script for relaxation of bilayer graphene.</li>
+<li><code>relax_mos2.in</code> <br  />
+ LAMMPS input script for relaxation of bilayer MoS$_2$.</li>
 </ul>
 <hr  />
 <h1><a class="anchor" id="autotoc_md4"></a>
@@ -137,6 +141,21 @@ Running the example</h1>
 </ol>
 <hr  />
 <h1><a class="anchor" id="autotoc_md6"></a>
+LAMMPS relaxation scripts</h1>
+<p>This repository includes LAMMPS input scripts used to relax the generated bilayer structures:</p>
+<ul>
+<li><code>relax_graphene.in</code> — relaxation of bilayer graphene using REBO + Kolmogorov–Crespi potentials <br  />
+</li>
+<li><code>relax_mos2.in</code> — relaxation of bilayer MoS$_2$ using SW + interlayer potential (ILP)</li>
+</ul>
+<p>These scripts take the generated <code>initial.data</code> file as input and perform energy minimization to obtain relaxed configurations.</p>
+<hr  />
+<h2><a class="anchor" id="autotoc_md8"></a>
+Usage</h2>
+<p>After generating the configuration (<code>initial.data</code>) using the Python script, run LAMMPS:</p>
+<div class="fragment"><div class="line">mpirun -np 4 lmp_mpi -in relax_graphene.in</div>
+</div><!-- fragment --><hr  />
+<h1><a class="anchor" id="autotoc_md10"></a>
 Modifying the example</h1>
 <p>The script <code><a class="el" href="example__inverse__design_8py.html">example_inverse_design.py</a></code> contains <b>a single example</b>.</p>
 <p>To reproduce other cases from the manuscript, edit the <b>example block</b>:</p>
@@ -158,7 +177,7 @@ Modifying the example</h1>
 <li><code>beta = 3</code> for honeycomb networks</li>
 </ul>
 <hr  />
-<h1><a class="anchor" id="autotoc_md8"></a>
+<h1><a class="anchor" id="autotoc_md12"></a>
 CSL construction</h1>
 <p>The coincidence site lattice (CSL) is computed using the oILAB Python bindings.</p>
 <p>The script constructs a <code>BiCrystal2D</code> object and obtains the CSL primitive vectors:</p>
@@ -168,16 +187,16 @@ CSL construction</h1>
 <div class="line">ell2 = gb.LatticeVector2D([0, 1], bicrystal.csl)</div>
 </div><!-- fragment --><p>The user may replace these with any integer combination of CSL basis vectors.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md10"></a>
+<h1><a class="anchor" id="autotoc_md14"></a>
 Bilayer conventions</h1>
 <p>The atomic configurations are constructed to be consistent with the LAMMPS scripts used in this work.</p>
-<h2><a class="anchor" id="autotoc_md11"></a>
+<h2><a class="anchor" id="autotoc_md15"></a>
 Bilayer graphene</h2>
 <ul>
 <li>Top layer: atom type <code>1</code></li>
 <li>Bottom layer: atom type <code>2</code></li>
 </ul>
-<h2><a class="anchor" id="autotoc_md12"></a>
+<h2><a class="anchor" id="autotoc_md16"></a>
 Bilayer MoS$_2$</h2>
 <ul>
 <li>Top layer: atom types <code>1, 2, 3</code></li>
@@ -185,16 +204,16 @@ Bilayer MoS$_2$</h2>
 </ul>
 <p>These conventions are required for compatibility with the provided LAMMPS input scripts.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md14"></a>
+<h1><a class="anchor" id="autotoc_md18"></a>
 Examples from the manuscript</h1>
 <p>Below are the Burgers vector–line vector pairs used in the paper.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md16"></a>
+<h1><a class="anchor" id="autotoc_md20"></a>
 Bilayer graphene</h1>
 <p>Structure matrix:</p>
 <div class="fragment"><div class="line">A = (2.46 / 2.0) * np.array([[0.0, -np.sqrt(3.0)],</div>
 <div class="line">                             [2.0, -1.0]], dtype=float)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md17"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md21"></a>
 1D network (Fig. 6b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
@@ -204,7 +223,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(569, 1), Fraction(567, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md18"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md22"></a>
 2D simple twist (Figs. 2a, 7)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -214,7 +233,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(-111, 1), Fraction(110, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md19"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
 2D complex twist (Fig. 9a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -224,7 +243,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(-154, 3), Fraction(151, 3)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md20"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md24"></a>
 2D moir\'e degeneracy 1 (Fig. 8a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -234,7 +253,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(-281, 1), Fraction(-1, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md21"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md25"></a>
 2D moir\'e degeneracy 2 (Fig. 8b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -244,7 +263,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(-280, 1), Fraction(-281, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md22"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md26"></a>
 2D moir\'e degeneracy 3 (Fig. 8c)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -254,7 +273,7 @@ Bilayer graphene</h1>
 <div class="line">l2u = np.array([Fraction(-279, 1), Fraction(-561, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md27"></a>
 2D complex strain (Fig. 9b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 3), Fraction(-2, 3)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(-1, 3), Fraction(1, 3)], dtype=object)</div>
@@ -265,12 +284,12 @@ Bilayer graphene</h1>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
 </div><!-- fragment --><hr  />
-<h1><a class="anchor" id="autotoc_md25"></a>
+<h1><a class="anchor" id="autotoc_md29"></a>
 Bilayer MoS$_2$</h1>
 <p>Structure matrix:</p>
 <div class="fragment"><div class="line">A = (3.19702 / 2.0) * np.array([[0.0, -np.sqrt(3.0)],</div>
 <div class="line">                                [2.0, -1.0]], dtype=float)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md26"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md30"></a>
 1D network (Fig. 6a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(0, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
@@ -280,7 +299,7 @@ Bilayer MoS$_2$</h1>
 <div class="line">l2u = np.array([Fraction(121, 1), Fraction(119, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(1, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md27"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md31"></a>
 2D twist (Fig. 2b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
@@ -290,7 +309,7 @@ Bilayer MoS$_2$</h1>
 <div class="line">l2u = np.array([Fraction(331, 3), Fraction(332, 3)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md28"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md32"></a>
 2D moir\'e degeneracy 1 (Fig. 10a)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
@@ -300,7 +319,7 @@ Bilayer MoS$_2$</h1>
 <div class="line">l2u = np.array([Fraction(65, 1), Fraction(64, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md29"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md33"></a>
 2D moir\'e degeneracy 2 (Fig. 10b)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
@@ -310,7 +329,7 @@ Bilayer MoS$_2$</h1>
 <div class="line">l2u = np.array([Fraction(87, 1), Fraction(107, 1)], dtype=object)</div>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md30"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md34"></a>
 2D complex strain (Fig. 11)</h2>
 <div class="fragment"><div class="line">b1u = np.array([Fraction(-1, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line">b2u = np.array([Fraction(1, 1), Fraction(1, 1)], dtype=object)</div>
@@ -321,7 +340,7 @@ Bilayer MoS$_2$</h1>
 <div class="line"> </div>
 <div class="line">beta = Fraction(3, 1)</div>
 </div><!-- fragment --><hr  />
-<h1><a class="anchor" id="autotoc_md32"></a>
+<h1><a class="anchor" id="autotoc_md36"></a>
 Notes</h1>
 <ol type="1">
 <li>The script computes (l^3 = -(l^1 + l^2)) automatically.</li>
@@ -335,7 +354,7 @@ Notes</h1>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Mar 22 2026 23:53:33 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Mon Mar 23 2026 00:07:52 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

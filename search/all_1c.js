@@ -5,5 +5,6 @@ var searchData=
   ['unimodularmatrix_2',['unimodularMatrix',['../classgb_l_a_b_1_1_r_l_l_l.html#a89b70cef54b99af6edc71d47b9a32142',1,'gbLAB::RLLL']]],
   ['unitcell_3',['unitCell',['../classgb_l_a_b_1_1_periodic_function.html#ab5317d349d961e009ec29751902028e9',1,'gbLAB::PeriodicFunction']]],
   ['update_4',['update',['../classgb_l_a_b_1_1_r_l_l_l.html#a63dcab5edd2c7d98c7395cfb58411d98',1,'gbLAB::RLLL']]],
-  ['updateconfiguration_5',['updateConfiguration',['../structgb_l_a_b_1_1_bicrystal_actor.html#a39e94ac65e2fad974d811bf9f6aa19ad',1,'gbLAB::BicrystalActor']]]
+  ['updateconfiguration_5',['updateConfiguration',['../structgb_l_a_b_1_1_bicrystal_actor.html#a39e94ac65e2fad974d811bf9f6aa19ad',1,'gbLAB::BicrystalActor']]],
+  ['usage_6',['Usage',['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md8',1,'']]]
 ];
