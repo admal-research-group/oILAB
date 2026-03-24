@@ -2,7 +2,7 @@
 
 Documentation
 -------------
-https://oilab-project.github.io/oILAB/
+https://admal-research-group.github.io/oILAB/
 
 
 Requirements: Eigen 3.4 or later versions
