@@ -336,7 +336,7 @@ beta = Fraction(3, 1)
 
 ## Notes
 
-1. The script computes \(l^3 = -(l^1 + l^2)\) automatically.
+1. The script computes **$l^3 = -(l^1 + l^2)$** automatically.
 2. The deformation gradient is computed using exact arithmetic before conversion to floating point.
 3. CSL vectors are obtained through oILAB and define the simulation cell.
 4. Atomic configurations are written in LAMMPS-compatible format.
