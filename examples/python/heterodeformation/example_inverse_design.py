@@ -14,8 +14,8 @@ from lammps_writer import write_lammps_data, summarize_configuration
 # ------------------------------------------------------------
 # Step 1: Choose reference bilayer
 # ------------------------------------------------------------
-bilayer = make_ab_graphene_bilayer(6.0)
-# bilayer = make_aa_prime_mos2_bilayer(6.5)
+#bilayer = make_ab_graphene_bilayer(3.5)
+bilayer = make_aa_prime_mos2_bilayer(6.5)
 
 
 # ------------------------------------------------------------
@@ -23,12 +23,12 @@ bilayer = make_ab_graphene_bilayer(6.0)
 # ------------------------------------------------------------
 # Example shown here: 1D simple network
 # Replace these using the combinations listed in README.md.
-b1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)
+b1u = np.array([Fraction(0, 1), Fraction(1, 1)], dtype=object)
 b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)
 b3u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)
 
 l1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)
-l2u = np.array([Fraction(569, 1), Fraction(567, 1)], dtype=object)
+l2u = np.array([Fraction(121, 1), Fraction(119, 1)], dtype=object)
 
 beta = Fraction(1, 1)
 
@@ -91,7 +91,7 @@ ell2 = gb.LatticeVector2D(np.array([0, 1], dtype=np.int64), bicrystal.csl)
 # ------------------------------------------------------------
 # Step 6: Build atomic positions in the chosen CSL cell
 # ------------------------------------------------------------
-positions, atom_types, charges, labels = hetero_bilayer.box(ell1, ell2)
+positions, atom_types, charges, labels, molecule_ids = hetero_bilayer.box(ell1, ell2)
 
 print(f"\nNumber of atoms in box = {len(positions)}")
 

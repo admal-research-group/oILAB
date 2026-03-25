@@ -103,6 +103,7 @@ def write_lammps_data(
 
     comment : str, optional
         Header comment written at the top of the data file.
+    """
     if len(positions) != len(atom_types):
         raise ValueError("positions and atom_types must have the same length.")
 
