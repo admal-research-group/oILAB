@@ -22,10 +22,12 @@ var example__inverse__design_8py =
     [ "l1u", "example__inverse__design_8py.html#a370391dbfae030c357d4ce9a82e48928", null ],
     [ "l2u", "example__inverse__design_8py.html#adff3683c61639754c5394be098f3dde8", null ],
     [ "labels", "example__inverse__design_8py.html#ab4fe5418c29e74eb40271258d8eab0c8", null ],
+    [ "molecule_ids", "example__inverse__design_8py.html#a159e17c07792d5d773908ce222f7b100", null ],
     [ "positions", "example__inverse__design_8py.html#a506c5da8f47209693ec77612081805b2", null ],
     [ "R", "example__inverse__design_8py.html#aa80a16a353c37a26fe964724a57cae87", null ],
     [ "result", "example__inverse__design_8py.html#a94952d1e3d4d863e3a70b855a40b7ab7", null ],
     [ "sigmaA", "example__inverse__design_8py.html#a85457f28bf1d876ab5330a8410877585", null ],
     [ "sigmaB", "example__inverse__design_8py.html#a4b96722d6b0b4b962f6488f085d821cf", null ],
-    [ "theta", "example__inverse__design_8py.html#a481408878ab1177db25baf4463d0505f", null ]
+    [ "theta", "example__inverse__design_8py.html#a481408878ab1177db25baf4463d0505f", null ],
+    [ "z_padding", "example__inverse__design_8py.html#afa18f8cab4137af90de2f21ce04c4959", null ]
 ];

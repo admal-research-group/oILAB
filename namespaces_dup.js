@@ -55,19 +55,19 @@ var namespaces_dup =
       [ "l1u", "namespaceexample__inverse__design.html#a370391dbfae030c357d4ce9a82e48928", null ],
       [ "l2u", "namespaceexample__inverse__design.html#adff3683c61639754c5394be098f3dde8", null ],
       [ "labels", "namespaceexample__inverse__design.html#ab4fe5418c29e74eb40271258d8eab0c8", null ],
+      [ "molecule_ids", "namespaceexample__inverse__design.html#a159e17c07792d5d773908ce222f7b100", null ],
       [ "positions", "namespaceexample__inverse__design.html#a506c5da8f47209693ec77612081805b2", null ],
       [ "R", "namespaceexample__inverse__design.html#aa80a16a353c37a26fe964724a57cae87", null ],
       [ "result", "namespaceexample__inverse__design.html#a94952d1e3d4d863e3a70b855a40b7ab7", null ],
       [ "sigmaA", "namespaceexample__inverse__design.html#a85457f28bf1d876ab5330a8410877585", null ],
       [ "sigmaB", "namespaceexample__inverse__design.html#a4b96722d6b0b4b962f6488f085d821cf", null ],
-      [ "theta", "namespaceexample__inverse__design.html#a481408878ab1177db25baf4463d0505f", null ]
+      [ "theta", "namespaceexample__inverse__design.html#a481408878ab1177db25baf4463d0505f", null ],
+      [ "z_padding", "namespaceexample__inverse__design.html#afa18f8cab4137af90de2f21ce04c4959", null ]
     ] ],
     [ "gbLAB", "namespacegb_l_a_b.html", "namespacegb_l_a_b" ],
     [ "inverse_design_core", "namespaceinverse__design__core.html", "namespaceinverse__design__core" ],
     [ "lammps_writer", "namespacelammps__writer.html", [
-      [ "compute_triclinic_box", "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732", null ],
-      [ "summarize_configuration", "namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb", null ],
-      [ "write_lammps_data", "namespacelammps__writer.html#a497eaaf2c4bedbe3f46157616fc1a9bd", null ]
+      [ "compute_triclinic_box", "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732", null ]
     ] ],
     [ "layers", "namespacelayers.html", "namespacelayers" ],
     [ "pyoilab", "namespacepyoilab.html", "namespacepyoilab" ]
