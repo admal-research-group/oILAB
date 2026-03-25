@@ -1,5 +1,9 @@
 var NAVTREEINDEX9 =
 {
+"structgb_l_a_b_1_1_lattice_direction.html#a22145a7114a0d665861f7473ae66e0b8":[3,0,2,27,2],
+"structgb_l_a_b_1_1_lattice_direction.html#a398426d915f2009b04951feb6690f992":[2,0,4,27,5],
+"structgb_l_a_b_1_1_lattice_direction.html#a398426d915f2009b04951feb6690f992":[3,0,2,27,5],
+"structgb_l_a_b_1_1_lattice_direction.html#a903c0584a7a1c2d2f2f317dbc9d8a786":[2,0,4,27,4],
 "structgb_l_a_b_1_1_lattice_direction.html#a903c0584a7a1c2d2f2f317dbc9d8a786":[3,0,2,27,4],
 "structgb_l_a_b_1_1_lattice_direction.html#aa40143d2222fb8d70dc8f43ab4316e8b":[2,0,4,27,3],
 "structgb_l_a_b_1_1_lattice_direction.html#aa40143d2222fb8d70dc8f43ab4316e8b":[3,0,2,27,3],

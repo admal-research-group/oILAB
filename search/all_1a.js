@@ -55,5 +55,6 @@ var searchData=
   ['stringtoscalar_3c_20long_20long_20_3e_52',['StringToScalar&lt; long long &gt;',['../structgb_l_a_b_1_1_string_to_scalar_3_01long_01long_01_4.html',1,'gbLAB']]],
   ['stringtoscalar_3c_20unsigned_20long_20_3e_53',['StringToScalar&lt; unsigned long &gt;',['../structgb_l_a_b_1_1_string_to_scalar_3_01unsigned_01long_01_4.html',1,'gbLAB']]],
   ['stringtoscalar_3c_20unsigned_20long_20long_20_3e_54',['StringToScalar&lt; unsigned long long &gt;',['../structgb_l_a_b_1_1_string_to_scalar_3_01unsigned_01long_01long_01_4.html',1,'gbLAB']]],
-  ['structure_55',['Repository structure',['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md2',1,'']]]
+  ['structure_55',['Repository structure',['../md_examples_2python_2heterodeformation_2_r_e_a_d_m_e.html#autotoc_md2',1,'']]],
+  ['summarize_5fconfiguration_56',['summarize_configuration',['../namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb',1,'lammps_writer']]]
 ];

@@ -121,8 +121,8 @@ $(document).ready(function(){initNavTree('example__inverse__design_8py_source.ht
 <div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="comment"># ------------------------------------------------------------</span></div>
 <div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="comment"># Step 1: Choose reference bilayer</span></div>
 <div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="comment"># ------------------------------------------------------------</span></div>
-<div class="line"><a id="l00017" name="l00017"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a55a7698468a48a39f61760700c2c8772">   17</a></span>bilayer = make_ab_graphene_bilayer(6.0)</div>
-<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span><span class="comment"># bilayer = make_aa_prime_mos2_bilayer(6.5)</span></div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span><span class="comment">#bilayer = make_ab_graphene_bilayer(3.5)</span></div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a55a7698468a48a39f61760700c2c8772">   18</a></span>bilayer = make_aa_prime_mos2_bilayer(6.5)</div>
 <div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span> </div>
 <div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span> </div>
 <div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span><span class="comment"># ------------------------------------------------------------</span></div>
@@ -130,12 +130,12 @@ $(document).ready(function(){initNavTree('example__inverse__design_8py_source.ht
 <div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span><span class="comment"># ------------------------------------------------------------</span></div>
 <div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="comment"># Example shown here: 1D simple network</span></div>
 <div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span><span class="comment"># Replace these using the combinations listed in README.md.</span></div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a4873d5653e8657ca548861fca02fa348">   26</a></span>b1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)</div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a4873d5653e8657ca548861fca02fa348">   26</a></span>b1u = np.array([Fraction(0, 1), Fraction(1, 1)], dtype=object)</div>
 <div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#ae1ec36ac0e9c02f7d5146846c3867bbc">   27</a></span>b2u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line"><a id="l00028" name="l00028"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a13dc32994efd37fce8a83efdfbb1ffe7">   28</a></span>b3u = np.array([Fraction(0, 1), Fraction(0, 1)], dtype=object)</div>
 <div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
 <div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a370391dbfae030c357d4ce9a82e48928">   30</a></span>l1u = np.array([Fraction(-1, 1), Fraction(1, 1)], dtype=object)</div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#adff3683c61639754c5394be098f3dde8">   31</a></span>l2u = np.array([Fraction(569, 1), Fraction(567, 1)], dtype=object)</div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#adff3683c61639754c5394be098f3dde8">   31</a></span>l2u = np.array([Fraction(121, 1), Fraction(119, 1)], dtype=object)</div>
 <div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span> </div>
 <div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a4b7dbcff4c8c403b2ae734c4c8288ecb">   33</a></span>beta = Fraction(1, 1)</div>
 <div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span> </div>
@@ -198,7 +198,7 @@ $(document).ready(function(){initNavTree('example__inverse__design_8py_source.ht
 <div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span><span class="comment"># ------------------------------------------------------------</span></div>
 <div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span><span class="comment"># Step 6: Build atomic positions in the chosen CSL cell</span></div>
 <div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span><span class="comment"># ------------------------------------------------------------</span></div>
-<div class="line"><a id="l00094" name="l00094"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a05f14efd1628716137fd4acb31b7a2f4">   94</a></span>positions, atom_types, charges, labels = hetero_bilayer.box(ell1, ell2)</div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a05f14efd1628716137fd4acb31b7a2f4">   94</a></span>positions, atom_types, charges, labels, molecule_ids = hetero_bilayer.box(ell1, ell2)</div>
 <div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span> </div>
 <div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span>print(f<span class="stringliteral">&quot;\nNumber of atoms in box = {len(positions)}&quot;</span>)</div>
 <div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span> </div>
@@ -237,7 +237,7 @@ $(document).ready(function(){initNavTree('example__inverse__design_8py_source.ht
 <div class="line"><a id="l00130" name="l00130"></a><span class="lineno">  130</span>    positions=positions,</div>
 <div class="line"><a id="l00131" name="l00131"></a><span class="lineno">  131</span>    atom_types=atom_types,</div>
 <div class="line"><a id="l00132" name="l00132"></a><span class="lineno">  132</span>    charges=charges,</div>
-<div class="line"><a id="l00133" name="l00133"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#a159e17c07792d5d773908ce222f7b100">  133</a></span>    molecule_ids=molecule_ids,</div>
+<div class="line"><a id="l00133" name="l00133"></a><span class="lineno">  133</span>    molecule_ids=molecule_ids,</div>
 <div class="line"><a id="l00134" name="l00134"></a><span class="lineno">  134</span>    ell1=ell1_cart,</div>
 <div class="line"><a id="l00135" name="l00135"></a><span class="lineno">  135</span>    ell2=ell2_cart,</div>
 <div class="line"><a id="l00136" name="l00136"></a><span class="lineno"><a class="line" href="namespaceexample__inverse__design.html#acb7c428dcc01c3cac43d00264b9aaa03">  136</a></span>    atom_style=bilayer.atom_style,</div>
@@ -251,7 +251,7 @@ $(document).ready(function(){initNavTree('example__inverse__design_8py_source.ht
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_d28a4824dc47e487b107a5db32ef43c4.html">examples</a></li><li class="navelem"><a class="el" href="dir_d050070cc3e4bbd91d897ff8856046e0.html">python</a></li><li class="navelem"><a class="el" href="dir_4f21acb946179ab6ab43d8476e6e738d.html">heterodeformation</a></li><li class="navelem"><a class="el" href="example__inverse__design_8py.html">example_inverse_design.py</a></li>
-    <li class="footer">Generated on Wed Mar 25 2026 05:17:06 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

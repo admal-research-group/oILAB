@@ -1,5 +1,7 @@
 var NAVTREEINDEX8 =
 {
+"namespaceexample__inverse__design.html#a370391dbfae030c357d4ce9a82e48928":[2,0,3,19],
+"namespaceexample__inverse__design.html#a411d92593dc1957596f97aa30c7ab6ae":[2,0,3,16],
 "namespaceexample__inverse__design.html#a481408878ab1177db25baf4463d0505f":[2,0,3,28],
 "namespaceexample__inverse__design.html#a4873d5653e8657ca548861fca02fa348":[2,0,3,2],
 "namespaceexample__inverse__design.html#a4b7dbcff4c8c403b2ae734c4c8288ecb":[2,0,3,5],
@@ -106,6 +108,8 @@ var NAVTREEINDEX8 =
 "namespaceinverse__design__core.html#ade4f2153a3facbe47cfba6b7e3826e78":[2,0,5,2],
 "namespacelammps__writer.html":[2,0,6],
 "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732":[2,0,6,0],
+"namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb":[2,0,6,1],
+"namespacelammps__writer.html#aee4bfcb848856392c9cd650d7416d319":[2,0,6,2],
 "namespacelayers.html":[2,0,7],
 "namespacelayers.html#a24d955f5d4f31b9cea3e73aee25855d6":[2,0,7,4],
 "namespacelayers.html#ada96ec1cce92f54598017deb14e861de":[2,0,7,3],
@@ -245,9 +249,5 @@ var NAVTREEINDEX8 =
 "structgb_l_a_b_1_1_lattice_core.html#ae01bd0e0db48a7c8b19d7b53c46f5431":[2,0,4,26,4],
 "structgb_l_a_b_1_1_lattice_direction.html":[3,0,2,27],
 "structgb_l_a_b_1_1_lattice_direction.html":[2,0,4,27],
-"structgb_l_a_b_1_1_lattice_direction.html#a22145a7114a0d665861f7473ae66e0b8":[2,0,4,27,2],
-"structgb_l_a_b_1_1_lattice_direction.html#a22145a7114a0d665861f7473ae66e0b8":[3,0,2,27,2],
-"structgb_l_a_b_1_1_lattice_direction.html#a398426d915f2009b04951feb6690f992":[2,0,4,27,5],
-"structgb_l_a_b_1_1_lattice_direction.html#a398426d915f2009b04951feb6690f992":[3,0,2,27,5],
-"structgb_l_a_b_1_1_lattice_direction.html#a903c0584a7a1c2d2f2f317dbc9d8a786":[2,0,4,27,4]
+"structgb_l_a_b_1_1_lattice_direction.html#a22145a7114a0d665861f7473ae66e0b8":[2,0,4,27,2]
 };

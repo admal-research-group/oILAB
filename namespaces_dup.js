@@ -67,7 +67,9 @@ var namespaces_dup =
     [ "gbLAB", "namespacegb_l_a_b.html", "namespacegb_l_a_b" ],
     [ "inverse_design_core", "namespaceinverse__design__core.html", "namespaceinverse__design__core" ],
     [ "lammps_writer", "namespacelammps__writer.html", [
-      [ "compute_triclinic_box", "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732", null ]
+      [ "compute_triclinic_box", "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732", null ],
+      [ "summarize_configuration", "namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb", null ],
+      [ "write_lammps_data", "namespacelammps__writer.html#aee4bfcb848856392c9cd650d7416d319", null ]
     ] ],
     [ "layers", "namespacelayers.html", "namespacelayers" ],
     [ "pyoilab", "namespacepyoilab.html", "namespacepyoilab" ]

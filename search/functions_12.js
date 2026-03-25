@@ -22,5 +22,6 @@ var searchData=
   ['staticid_19',['staticid',['../classgb_l_a_b_1_1_static_i_d.html#ad0c22c13a72f8a3abc552c673f625e70',1,'gbLAB::StaticID::StaticID()'],['../classgb_l_a_b_1_1_static_i_d.html#af39a0a3f0d5bcaa8bce0552485aeea7f',1,'gbLAB::StaticID::StaticID(const StaticID &amp;)']]],
   ['stepheight_20',['stepHeight',['../classgb_l_a_b_1_1_gb.html#ae7d86c24fcf8984feede3354bcb4352c',1,'gbLAB::Gb']]],
   ['stepheighta_21',['stepHeightA',['../classgb_l_a_b_1_1_gb.html#a6c4082f445adce8f5f06cfa17eb68185',1,'gbLAB::Gb']]],
-  ['stepheightb_22',['stepHeightB',['../classgb_l_a_b_1_1_gb.html#aecde6227ffba1ec751312f864c02a4a9',1,'gbLAB::Gb']]]
+  ['stepheightb_22',['stepHeightB',['../classgb_l_a_b_1_1_gb.html#aecde6227ffba1ec751312f864c02a4a9',1,'gbLAB::Gb']]],
+  ['summarize_5fconfiguration_23',['summarize_configuration',['../namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb',1,'lammps_writer']]]
 ];

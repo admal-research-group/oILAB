@@ -107,6 +107,10 @@ $(document).ready(function(){initNavTree('namespacelammps__writer.html',''); ini
 Functions</h2></td></tr>
 <tr class="memitem:a2327eb75a6f2ed25a74763011e2a8732" id="r_a2327eb75a6f2ed25a74763011e2a8732"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732">compute_triclinic_box</a> (ell1, ell2, zlo=-20.0, zhi=20.0)</td></tr>
 <tr class="separator:a2327eb75a6f2ed25a74763011e2a8732"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee4bfcb848856392c9cd650d7416d319" id="r_aee4bfcb848856392c9cd650d7416d319"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelammps__writer.html#aee4bfcb848856392c9cd650d7416d319">write_lammps_data</a> (filename, positions, atom_types, charges, ell1, ell2, atom_style=&quot;atomic&quot;, molecule_ids=None, z_padding=20.0, comment=&quot;LAMMPS data file&quot;)</td></tr>
+<tr class="separator:aee4bfcb848856392c9cd650d7416d319"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3e30ebea568e4f186b554082d4215fb" id="r_ad3e30ebea568e4f186b554082d4215fb"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelammps__writer.html#ad3e30ebea568e4f186b554082d4215fb">summarize_configuration</a> (positions, atom_types, ell1, ell2)</td></tr>
+<tr class="separator:ad3e30ebea568e4f186b554082d4215fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
 <a id="a2327eb75a6f2ed25a74763011e2a8732" name="a2327eb75a6f2ed25a74763011e2a8732"></a>
@@ -166,13 +170,176 @@ dict
 
 </div>
 </div>
+<a id="ad3e30ebea568e4f186b554082d4215fb" name="ad3e30ebea568e4f186b554082d4215fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad3e30ebea568e4f186b554082d4215fb">&#9670;&#160;</a></span>summarize_configuration()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">lammps_writer.summarize_configuration </td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>positions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>atom_types</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>ell1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>ell2</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<pre class="fragment">Print a compact summary of the configuration.
+</pre> 
+<p class="definition">Definition at line <a class="el" href="lammps__writer_8py_source.html#l00152">152</a> of file <a class="el" href="lammps__writer_8py_source.html">lammps_writer.py</a>.</p>
+
+</div>
+</div>
+<a id="aee4bfcb848856392c9cd650d7416d319" name="aee4bfcb848856392c9cd650d7416d319"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee4bfcb848856392c9cd650d7416d319">&#9670;&#160;</a></span>write_lammps_data()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">lammps_writer.write_lammps_data </td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>positions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>atom_types</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>charges</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>ell1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>ell2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>atom_style</em> = <code>&quot;atomic&quot;</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>molecule_ids</em> = <code>None</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>z_padding</em> = <code>20.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>comment</em> = <code>&quot;LAMMPS&#160;data&#160;file&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<pre class="fragment">Write a LAMMPS data file for atomistic simulations.
+
+This function generates a triclinic simulation box from the in-plane
+lattice vectors (ell1, ell2) and writes atomic data in either
+'atomic' or 'full' atom_style format.
+
+Parameters
+----------
+filename : str
+    Output file name.
+
+positions : list[(x, y, z)]
+    Cartesian atomic positions.
+
+atom_types : list[int]
+    Integer atom types (1-based), consistent with LAMMPS conventions.
+
+charges : list[float]
+    Atomic charges. Used only when atom_style='full'. Ignored otherwise.
+
+ell1, ell2 : array-like
+    2D Cartesian lattice vectors defining the in-plane periodic cell.
+    These are converted internally into a triclinic LAMMPS box.
+
+atom_style : str, optional
+    LAMMPS atom style. Supported options:
+    - 'atomic' : writes (id, type, x, y, z)
+    - 'full'   : writes (id, molecule-ID, type, charge, x, y, z)
+
+molecule_ids : list[int] or None, optional
+    Molecule (or layer) IDs for each atom, required for certain
+    many-body or interlayer potentials (e.g., ilp/tmd).
+    If None and atom_style='full', all atoms are assigned molecule ID = 1.
+
+z_padding : float, optional
+    Half-width of the simulation box in the z-direction. The box is
+    constructed as [ -z_padding, z_padding ]. This should be large
+    enough to avoid spurious interactions between periodic images
+    in z when using boundary p p p.
+
+comment : str, optional
+    Header comment written at the top of the data file.
+</pre> 
+<p class="definition">Definition at line <a class="el" href="lammps__writer_8py_source.html#l00051">51</a> of file <a class="el" href="lammps__writer_8py_source.html">lammps_writer.py</a>.</p>
+
+</div>
+</div>
 </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacelammps__writer.html">lammps_writer</a></li>
-    <li class="footer">Generated on Wed Mar 25 2026 05:17:06 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>
