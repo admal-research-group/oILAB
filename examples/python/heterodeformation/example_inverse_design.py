@@ -130,9 +130,11 @@ write_lammps_data(
     positions=positions,
     atom_types=atom_types,
     charges=charges,
+    molecule_ids=molecule_ids,
     ell1=ell1_cart,
     ell2=ell2_cart,
     atom_style=bilayer.atom_style,
+    z_padding=40.0,
 )
 
 print("\nWrote LAMMPS data file: initial.data")

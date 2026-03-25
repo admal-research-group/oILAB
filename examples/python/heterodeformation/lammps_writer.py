@@ -56,36 +56,61 @@ def write_lammps_data(
     ell1,
     ell2,
     atom_style="atomic",
+    molecule_ids=None,
     z_padding=20.0,
     comment="LAMMPS data file",
 ):
     """
-    Write a LAMMPS data file.
+    Write a LAMMPS data file for atomistic simulations.
+
+    This function generates a triclinic simulation box from the in-plane
+    lattice vectors (ell1, ell2) and writes atomic data in either
+    'atomic' or 'full' atom_style format.
 
     Parameters
     ----------
     filename : str
         Output file name.
+
     positions : list[(x, y, z)]
         Cartesian atomic positions.
+
     atom_types : list[int]
-        Atom types.
+        Integer atom types (1-based), consistent with LAMMPS conventions.
+
     charges : list[float]
-        Atomic charges. Used only for atom_style='full'.
+        Atomic charges. Used only when atom_style='full'. Ignored otherwise.
+
     ell1, ell2 : array-like
-        2D Cartesian simulation cell vectors.
-    atom_style : str
-        'atomic' or 'full'.
-    z_padding : float
-        Half-width of z box: [ -z_padding, z_padding ].
-    comment : str
-        Header comment.
-    """
+        2D Cartesian lattice vectors defining the in-plane periodic cell.
+        These are converted internally into a triclinic LAMMPS box.
+
+    atom_style : str, optional
+        LAMMPS atom style. Supported options:
+        - 'atomic' : writes (id, type, x, y, z)
+        - 'full'   : writes (id, molecule-ID, type, charge, x, y, z)
+
+    molecule_ids : list[int] or None, optional
+        Molecule (or layer) IDs for each atom, required for certain
+        many-body or interlayer potentials (e.g., ilp/tmd).
+        If None and atom_style='full', all atoms are assigned molecule ID = 1.
+
+    z_padding : float, optional
+        Half-width of the simulation box in the z-direction. The box is
+        constructed as [ -z_padding, z_padding ]. This should be large
+        enough to avoid spurious interactions between periodic images
+        in z when using boundary p p p.
+
+    comment : str, optional
+        Header comment written at the top of the data file.
     if len(positions) != len(atom_types):
         raise ValueError("positions and atom_types must have the same length.")
 
     if atom_style == "full" and len(positions) != len(charges):
         raise ValueError("positions and charges must have the same length for atom_style='full'.")
+
+    if atom_style == "full" and molecule_ids is not None and len(positions) != len(molecule_ids):
+        raise ValueError("positions and molecule_ids must have the same length for atom_style='full'.")
 
     box = compute_triclinic_box(ell1, ell2, zlo=-z_padding, zhi=z_padding)
 
@@ -109,10 +134,12 @@ def write_lammps_data(
 
         elif atom_style == "full":
             f.write("Atoms # full\n\n")
-            for i, ((x, y, z), atom_type, charge) in enumerate(
-                zip(positions, atom_types, charges), start=1
+            if molecule_ids is None:
+                molecule_ids = [1] * n_atoms
+
+            for i, ((x, y, z), mol_id, atom_type, charge) in enumerate(
+                zip(positions, molecule_ids, atom_types, charges), start=1
             ):
-                mol_id = 1
                 f.write(
                     f"{i:d} {mol_id:d} {atom_type:d} "
                     f"{charge:.16f} {x:.16f} {y:.16f} {z:.16f}\n"

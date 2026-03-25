@@ -66,6 +66,7 @@ class Bilayer2D:
         atom_types : list[int]
         charges : list[float]
         labels : list[str]
+        molecule_ids : list[int]
         """
         # Convert CSL vectors into each layer's lattice vectors
         ell1_bottom = self.bicrystal.getLatticeVectorInA(ell1)
@@ -91,13 +92,18 @@ class Bilayer2D:
         type_offset = max(types_bottom)
         types_top = [t + type_offset for t in types_top]
 
+        # Molecule IDs: bottom = 1, top = 2
+        molecule_ids_bottom = [1] * len(pos_bottom)
+        molecule_ids_top = [2] * len(pos_top)
+
         # Concatenate
         positions = pos_bottom + pos_top
         atom_types = types_bottom + types_top
         charges = charges_bottom + charges_top
         labels = labels_bottom + labels_top
+        molecule_ids = molecule_ids_bottom + molecule_ids_top
 
-        return positions, atom_types, charges, labels
+        return positions, atom_types, charges, labels, molecule_ids
 
 
 def heterodeform_bilayer(
