@@ -1,6 +1,6 @@
 #include "../../include/Lattices/LatticeModule.h"
 #include "../../include/IO/TextFileParser.h"
-#include "../Utilities/range.h"
+#include "../../include/Utilities/range.h"
 #include <numbers>
 
 using namespace oILAB;

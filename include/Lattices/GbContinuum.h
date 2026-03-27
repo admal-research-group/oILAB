@@ -7,7 +7,7 @@
 
 #include "LatticeCore.h"
 #include "Eigen/Dense"
-#include "PeriodicFunction.h"
+#include "../Math/PeriodicFunction.h"
 #include "LatticeFunction.h"
 #include "../Math/Function.h"
 #include "GbMaterialTensors.h"

@@ -8,7 +8,7 @@
 #include "Operator.h"
 #include "LatticeModule.h"
 #include <unsupported/Eigen/CXX11/Tensor>
-#include "FFT.h"
+#include "../Math/FFT.h"
 #include <numbers>
 
 namespace oILAB {

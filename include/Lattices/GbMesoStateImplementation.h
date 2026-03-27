@@ -5,10 +5,10 @@
 #ifndef OILAB_GBMESOSTATEIMPLEMENTATION_H
 #define OILAB_GBMESOSTATEIMPLEMENTATION_H
 
-#include "Lammps.h"
+#include "../IO/Lammps.h"
 #include <iostream>
 //#include <Python.h>
-#include "PeriodicFunctionImplementation.h"
+#include "../Math/PeriodicFunctionImplementation.h"
 
 namespace oILAB {
 template <int dim>

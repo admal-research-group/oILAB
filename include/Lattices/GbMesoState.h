@@ -9,7 +9,7 @@
 #include "GbContinuum.h"
 #include "LatticeCore.h"
 #include "OrderedTuplet.h"
-#include "PeriodicFunction.h"
+#include "../Math/PeriodicFunction.h"
 
 namespace oILAB {
 

@@ -9,7 +9,7 @@
 #include <deque>
 #include "GbMesoState.h"
 #include "GbContinuum.h"
-#include "Ensemble.h"
+#include "../MonteCarlo/Ensemble.h"
 
 namespace oILAB {
 /*! Class template that aids in the construction of an ensemble of GB
