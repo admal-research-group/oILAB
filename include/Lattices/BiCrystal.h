@@ -7,17 +7,15 @@
 #ifndef gbLAB_BiCrystal_h_
 #define gbLAB_BiCrystal_h_
 
-#include <LatticeModule.h>
-#include <SmithDecomposition.h>
-#include "RationalMatrix.h"
-#include "LLL.h"
-#include "RLLL.h"
+#include "../Math/LLL.h"
+#include "../Math/RLLL.h"
+#include "../Math/RationalMatrix.h"
+#include "../Math/SmithDecomposition.h"
+#include "../Utilities/Rotation.h"
+#include "LatticeModule.h"
 #include <unordered_set>
-#include "Rotation.h"
 
-
-namespace gbLAB
-{
+namespace oILAB {
     /*!Class template that computes the coincident-site-lattice (CSL) of two
      * parent lattices using the Smith Normal Form [1].
      *
