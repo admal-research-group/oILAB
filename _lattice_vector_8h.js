@@ -1,6 +1,6 @@
 var _lattice_vector_8h =
 [
-    [ "gbLAB::LatticeVector< dim >", "classgb_l_a_b_1_1_lattice_vector.html", "classgb_l_a_b_1_1_lattice_vector" ],
-    [ "operator*", "_lattice_vector_8h.html#a150eae51dd4485308d2b93db94609c3c", null ],
-    [ "operator*", "_lattice_vector_8h.html#a61c79f3ea629e8930144a0dc1905c949", null ]
+    [ "oILAB::LatticeVector< dim >", "classo_i_l_a_b_1_1_lattice_vector.html", "classo_i_l_a_b_1_1_lattice_vector" ],
+    [ "operator*", "_lattice_vector_8h.html#ad1820bf26534603eb2ddd81a39ef3165", null ],
+    [ "operator*", "_lattice_vector_8h.html#a27cc881181a434d20ad166faa36ab3e1", null ]
 ];

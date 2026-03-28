@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['gblatticefunctions_0',['GbLatticeFunctions',['../classgb_l_a_b_1_1_gb_continuum.html#a16cadc89dc7ef354e5ff01855c41081f',1,'gbLAB::GbContinuum']]]
+  ['gblatticefunctions_0',['GbLatticeFunctions',['../classo_i_l_a_b_1_1_gb_continuum.html#a6fab10d008930edc027ba73202e85f57',1,'oILAB::GbContinuum']]]
 ];

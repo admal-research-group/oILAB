@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['basetype_0',['basetype',['../classgb_l_a_b_1_1_lattice_vector.html#afe20f80142bf5c2c9990498514cb02c9',1,'gbLAB::LatticeVector::BaseType'],['../classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a80bb33f972b68790b31c2ff414608112',1,'gbLAB::ReciprocalLatticeVector::BaseType']]],
-  ['bicrystallatticevectors_1',['bicrystallatticevectors',['../classgb_l_a_b_1_1_gb_meso_state.html#a992a15af7ad5dea1960d2818774f11ce',1,'gbLAB::GbMesoState::BicrystalLatticeVectors'],['../classgb_l_a_b_1_1_gb_meso_state_ensemble.html#a502aaba0ccc98f5a6eaf98571d4c0a8a',1,'gbLAB::GbMesoStateEnsemble::BicrystalLatticeVectors']]]
+  ['basetype_0',['basetype',['../classo_i_l_a_b_1_1_lattice_vector.html#a0f696a6413bdddd9293d923388a6b750',1,'oILAB::LatticeVector::BaseType'],['../classo_i_l_a_b_1_1_reciprocal_lattice_vector.html#ae18e06afcc55661def38a3497d246916',1,'oILAB::ReciprocalLatticeVector::BaseType']]],
+  ['bicrystallatticevectors_1',['bicrystallatticevectors',['../classo_i_l_a_b_1_1_gb_meso_state.html#a1a5c34b6fb8aa4a9a2673df1ca3e81e6',1,'oILAB::GbMesoState::BicrystalLatticeVectors'],['../classo_i_l_a_b_1_1_gb_meso_state_ensemble.html#acade475c9adee32cc66aca155c4ce444',1,'oILAB::GbMesoStateEnsemble::BicrystalLatticeVectors']]]
 ];

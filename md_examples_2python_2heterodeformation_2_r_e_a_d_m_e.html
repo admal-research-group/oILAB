@@ -125,7 +125,7 @@ Repository structure</h1>
 <hr  />
 <h1><a class="anchor" id="autotoc_md4"></a>
 Running the example</h1>
-<p>First, build the oILAB library and Python bindings from the repository root:</p>
+<p>First, build the <a class="el" href="namespaceo_i_l_a_b.html">oILAB</a> library and Python bindings from the repository root:</p>
 <div class="fragment"><div class="line">cmake -B build -S .</div>
 <div class="line">cmake --build build</div>
 </div><!-- fragment --><p>Ensure the Python bindings are available:</p>
@@ -135,7 +135,7 @@ Running the example</h1>
 </div><!-- fragment --><p>The script will:</p><ol type="1">
 <li>Compute the deformation gradient (F) from prescribed network data</li>
 <li>Construct a heterodeformed bilayer</li>
-<li>Compute the CSL using oILAB</li>
+<li>Compute the CSL using <a class="el" href="namespaceo_i_l_a_b.html">oILAB</a></li>
 <li>Generate atomic coordinates</li>
 <li>Write a LAMMPS data file (<code>initial.data</code>)</li>
 </ol>
@@ -179,7 +179,7 @@ Modifying the example</h1>
 <hr  />
 <h1><a class="anchor" id="autotoc_md12"></a>
 CSL construction</h1>
-<p>The coincidence site lattice (CSL) is computed using the oILAB Python bindings.</p>
+<p>The coincidence site lattice (CSL) is computed using the <a class="el" href="namespaceo_i_l_a_b.html">oILAB</a> Python bindings.</p>
 <p>The script constructs a <code>BiCrystal2D</code> object and obtains the CSL primitive vectors:</p>
 <div class="fragment"><div class="line">bicrystal = hetero_bilayer.bicrystal</div>
 </div><!-- fragment --><p>The simulation cell is defined using CSL lattice vectors:</p>
@@ -345,7 +345,7 @@ Notes</h1>
 <ol type="1">
 <li>The script computes <b>$l^3 = -(l^1 + l^2)$</b> automatically.</li>
 <li>The deformation gradient is computed using exact arithmetic before conversion to floating point.</li>
-<li>CSL vectors are obtained through oILAB and define the simulation cell.</li>
+<li>CSL vectors are obtained through <a class="el" href="namespaceo_i_l_a_b.html">oILAB</a> and define the simulation cell.</li>
 <li>Atomic configurations are written in LAMMPS-compatible format. </li>
 </ol>
 </div></div><!-- contents -->
@@ -354,7 +354,7 @@ Notes</h1>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sat Mar 28 2026 00:15:05 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

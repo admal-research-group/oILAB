@@ -1,9 +1,9 @@
 var classpyoilab_1_1_py_lattice_direction =
 [
     [ "IntScalarType", "classpyoilab_1_1_py_lattice_direction.html#a2c1640355153c1acf1381d62d87bbfc3", null ],
-    [ "Lattice", "classpyoilab_1_1_py_lattice_direction.html#a75c6dbcc3ed32d4f4f358b831ea6e597", null ],
-    [ "LatticeDirection", "classpyoilab_1_1_py_lattice_direction.html#ad7171eaf3ad1f90d49a750a1f71d51f5", null ],
-    [ "LatticeVector", "classpyoilab_1_1_py_lattice_direction.html#aa63dc50f42d748d90f8b7ce125db7b51", null ],
+    [ "Lattice", "classpyoilab_1_1_py_lattice_direction.html#a0e4999cdc1e25c32ebd96958a48ac9a0", null ],
+    [ "LatticeDirection", "classpyoilab_1_1_py_lattice_direction.html#ad5c4c4185e85b05da97f3857f9dea962", null ],
+    [ "LatticeVector", "classpyoilab_1_1_py_lattice_direction.html#a86c4e6b6f6a9281fb3e23b779957ce7f", null ],
     [ "MatrixDimD", "classpyoilab_1_1_py_lattice_direction.html#a2882e8f9e21310f105fef965cc98cc31", null ],
     [ "MatrixDimI", "classpyoilab_1_1_py_lattice_direction.html#abd800f658ce66d9804eb109d11086b4d", null ],
     [ "PyLatticeVector", "classpyoilab_1_1_py_lattice_direction.html#a25518dae4f56c83cb3dc45a6c1f5f2fc", null ],

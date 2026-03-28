@@ -1,8 +1,8 @@
 var classpyoilab_1_1_py_lattice_vector =
 [
     [ "IntScalarType", "classpyoilab_1_1_py_lattice_vector.html#a7de5249c4b8683857256e3762d65dfe6", null ],
-    [ "Lattice", "classpyoilab_1_1_py_lattice_vector.html#aaae2f0bfbce8ad366dda19c120254141", null ],
-    [ "LatticeVector", "classpyoilab_1_1_py_lattice_vector.html#a7250920c51274bb2ad252ced4fed7f4a", null ],
+    [ "Lattice", "classpyoilab_1_1_py_lattice_vector.html#a57772b9eac1876443890ac7963b8180c", null ],
+    [ "LatticeVector", "classpyoilab_1_1_py_lattice_vector.html#a5c3f21fcdc8de9b995fb93cca3585aa1", null ],
     [ "MatrixDimD", "classpyoilab_1_1_py_lattice_vector.html#a07b825af537af3355953ecb49cc2d840", null ],
     [ "MatrixDimI", "classpyoilab_1_1_py_lattice_vector.html#aafdb4044f6d9e026584f1b038f29797f", null ],
     [ "PyReciprocalLatticeDirection", "classpyoilab_1_1_py_lattice_vector.html#ac72831327cc4b46cccad02a4f2fa3bcd", null ],

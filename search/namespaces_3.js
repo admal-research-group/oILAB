@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['inverse_5fdesign_5fcore_0',['inverse_design_core',['../namespaceinverse__design__core.html',1,'']]]
+  ['lammps_5fwriter_0',['lammps_writer',['../namespacelammps__writer.html',1,'']]],
+  ['layers_1',['layers',['../namespacelayers.html',1,'']]]
 ];

@@ -1,4 +1,4 @@
 var _evolution_algorithm_8h =
 [
-    [ "gbLAB::EvolutionAlgorithm< StateType, SystemType, TransitionProbabilityType >", "classgb_l_a_b_1_1_evolution_algorithm.html", "classgb_l_a_b_1_1_evolution_algorithm" ]
+    [ "oILAB::EvolutionAlgorithm< StateType, SystemType, TransitionProbabilityType >", "classo_i_l_a_b_1_1_evolution_algorithm.html", "classo_i_l_a_b_1_1_evolution_algorithm" ]
 ];

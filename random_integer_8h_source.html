@@ -114,36 +114,33 @@ $(document).ready(function(){initNavTree('random_integer_8h_source.html',''); in
 <div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="preprocessor">#include &lt;iostream&gt;</span></div>
 <div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="preprocessor">#include &lt;random&gt;</span></div>
 <div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span> </div>
-<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacegb_l_a_b.html">gbLAB</a> {</div>
-<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span>    <span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="foldopen" id="foldopen00012" data-start="{" data-end="}">
-<div class="line"><a id="l00012" name="l00012"></a><span class="lineno"><a class="line" href="namespacegb_l_a_b.html#aa37bec67fdab015b656e7781a66496d8">   12</a></span>    T <a class="code hl_function" href="namespacegb_l_a_b.html#aa37bec67fdab015b656e7781a66496d8">random</a>(<span class="keyword">const</span> T&amp; a, <span class="keyword">const</span> T&amp; b) {</div>
-<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span>        std::random_device rd;  <span class="comment">// a seed source for the random number engine</span></div>
-<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span>        std::mt19937 gen(rd()); <span class="comment">// mersenne_twister_engine seeded with rd()</span></div>
-<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span>        <span class="keywordflow">if</span>(<span class="keyword">typeid</span>(T) == <span class="keyword">typeid</span>(<span class="keywordtype">int</span>)) {</div>
-<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span>            std::uniform_int_distribution&lt;&gt; distrib(a, b);</div>
-<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span>            <span class="keywordflow">return</span> distrib(gen);</div>
-<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span>        }</div>
-<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span>        <span class="keywordflow">else</span> <span class="keywordflow">if</span>(<span class="keyword">typeid</span>(T) == <span class="keyword">typeid</span>(<span class="keywordtype">double</span>)) {</div>
-<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span>            std::uniform_real_distribution&lt;&gt; distrib(a, b);</div>
-<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span>            <span class="keywordflow">return</span> distrib(gen);</div>
-<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span>        }</div>
-<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span>        <span class="keywordflow">else</span>{</div>
-<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span>            <span class="keywordflow">throw</span>(std::runtime_error(<span class="stringliteral">&quot;Unknown type\n&quot;</span>));</div>
-<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span>        }</div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>    }</div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespaceo_i_l_a_b.html">oILAB</a> {</div>
+<div class="foldopen" id="foldopen00011" data-start="{" data-end="}">
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno"><a class="line" href="namespaceo_i_l_a_b.html#a6ac41da8c067c45232230a54acb1cbd9">   11</a></span><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt; T <a class="code hl_function" href="namespaceo_i_l_a_b.html#a6ac41da8c067c45232230a54acb1cbd9">random</a>(<span class="keyword">const</span> T &amp;a, <span class="keyword">const</span> T &amp;b) {</div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span>  std::random_device rd;  <span class="comment">// a seed source for the random number engine</span></div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span>  std::mt19937 gen(rd()); <span class="comment">// mersenne_twister_engine seeded with rd()</span></div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span>  <span class="keywordflow">if</span> (<span class="keyword">typeid</span>(T) == <span class="keyword">typeid</span>(<span class="keywordtype">int</span>)) {</div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span>    std::uniform_int_distribution&lt;&gt; distrib(a, b);</div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span>    <span class="keywordflow">return</span> distrib(gen);</div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span>  } <span class="keywordflow">else</span> <span class="keywordflow">if</span> (<span class="keyword">typeid</span>(T) == <span class="keyword">typeid</span>(<span class="keywordtype">double</span>)) {</div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span>    std::uniform_real_distribution&lt;&gt; distrib(a, b);</div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span>    <span class="keywordflow">return</span> distrib(gen);</div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span>  } <span class="keywordflow">else</span> {</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span>    <span class="keywordflow">throw</span>(std::runtime_error(<span class="stringliteral">&quot;Unknown type\n&quot;</span>));</div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span>  }</div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span>    }</div>
 </div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span>}</div>
-<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span><span class="preprocessor">#endif </span><span class="comment">//OILAB_RANDOM_H</span></div>
-<div class="ttc" id="anamespacegb_l_a_b_html"><div class="ttname"><a href="namespacegb_l_a_b.html">gbLAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:14</a></div></div>
-<div class="ttc" id="anamespacegb_l_a_b_html_aa37bec67fdab015b656e7781a66496d8"><div class="ttname"><a href="namespacegb_l_a_b.html#aa37bec67fdab015b656e7781a66496d8">gbLAB::random</a></div><div class="ttdeci">T random(const T &amp;a, const T &amp;b)</div><div class="ttdef"><b>Definition</b> <a href="random_integer_8h_source.html#l00012">randomInteger.h:12</a></div></div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span>    } <span class="comment">// namespace oILAB</span></div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span><span class="preprocessor">#endif </span><span class="comment">//OILAB_RANDOM_H</span></div>
+<div class="ttc" id="anamespaceo_i_l_a_b_html"><div class="ttname"><a href="namespaceo_i_l_a_b.html">oILAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:13</a></div></div>
+<div class="ttc" id="anamespaceo_i_l_a_b_html_a6ac41da8c067c45232230a54acb1cbd9"><div class="ttname"><a href="namespaceo_i_l_a_b.html#a6ac41da8c067c45232230a54acb1cbd9">oILAB::random</a></div><div class="ttdeci">T random(const T &amp;a, const T &amp;b)</div><div class="ttdef"><b>Definition</b> <a href="random_integer_8h_source.html#l00011">randomInteger.h:11</a></div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li><li class="navelem"><a class="el" href="dir_cc3f469176eff71c86d2985cf9e9c60c.html">Utilities</a></li><li class="navelem"><a class="el" href="random_integer_8h.html">randomInteger.h</a></li>
-    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sat Mar 28 2026 00:15:04 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

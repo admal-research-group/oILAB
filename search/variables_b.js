@@ -1,15 +1,15 @@
 var searchData=
 [
-  ['n_0',['n',['../classgb_l_a_b_1_1_operator.html#afdc0f1c02e1f3517d5c4d8ad1761057d',1,'gbLAB::Operator::n'],['../structgb_l_a_b_1_1_fraction.html#abebe511b5bdb52c9700bcbf3a0763330',1,'gbLAB::Fraction::n'],['../structgb_l_a_b_1_1_rational.html#a67580488f8de070585ee1fe337e4d21a',1,'gbLAB::Rational::n'],['../classgb_l_a_b_1_1_bi_crystal.html#a66c2dde609c59ee819b3fe8a34a86dd6',1,'gbLAB::BiCrystal::N'],['../structgb_l_a_b_1_1_fraction.html#a00d15b3019a25c806c0bc1726302673a',1,'gbLAB::Fraction::N'],['../classgb_l_a_b_1_1_gb_continuum.html#a9b262dff4c1b2f6d8fa8e1af7e1c1cb4',1,'gbLAB::GbContinuum::n']]],
-  ['na_1',['nA',['../classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e',1,'gbLAB::Gb']]],
+  ['n_0',['n',['../classo_i_l_a_b_1_1_operator.html#a3588e36fdc03ae52e05667bc1da997f7',1,'oILAB::Operator::n'],['../structo_i_l_a_b_1_1_fraction.html#a6d8089fd1c8ad45efd5f7a078476bc81',1,'oILAB::Fraction::n'],['../structo_i_l_a_b_1_1_rational.html#a6d2c26d57fd78c0e111a35e2484c8ada',1,'oILAB::Rational::n'],['../classo_i_l_a_b_1_1_bi_crystal.html#a07221d0e360277584d5a662b7c744d57',1,'oILAB::BiCrystal::N'],['../structo_i_l_a_b_1_1_fraction.html#a8ef4002b0d8aa207c985ed56c4bdb276',1,'oILAB::Fraction::N'],['../classo_i_l_a_b_1_1_gb_continuum.html#ad08a90631d570e195dbbb2e7b5b09fe1',1,'oILAB::GbContinuum::n']]],
+  ['na_1',['nA',['../classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669',1,'oILAB::Gb']]],
   ['name_2',['name',['../classbilayers_1_1_bilayer2_d.html#aefb58b7f9f31d41c1fcf55283dfa8f10',1,'bilayers.Bilayer2D.name'],['../classlayers_1_1_layer2_d.html#a3866a362b047d8510330ec450bfc3a7f',1,'layers.Layer2D.name']]],
-  ['nb_3',['nB',['../classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda',1,'gbLAB::Gb']]],
+  ['nb_3',['nB',['../classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034',1,'oILAB::Gb']]],
   ['negativer_4',['negativeR',['../namespaceexample.html#a3f835211d893ed8d1ca82d696761e01d',1,'example']]],
-  ['newvieweraction_5',['newViewerAction',['../structgb_l_a_b_1_1oi_viewer_main_window.html#a07f10efd1f216d8c1c9d9a48edb281ee',1,'gbLAB::oiViewerMainWindow']]],
-  ['nimages_6',['nimages',['../classgb_l_a_b_1_1_dislocation_dipole.html#a1b813c218c8780d4f2cd98cbc37e0bc7',1,'gbLAB::DislocationDipole::nImages'],['../classgb_l_a_b_1_1_dislocations.html#aa845eebce08e10379702579b96d192c2',1,'gbLAB::Dislocations::nImages']]],
-  ['normal_7',['normal',['../classgb_l_a_b_1_1_displacement_kernel.html#a3f2b672f50dc45cf2171b241dcaf722c',1,'gbLAB::DisplacementKernel::normal'],['../classgb_l_a_b_1_1_shifted_displacement_kernel_f_t.html#a201f168dca6ab66c4d75d9e1e79a7a62',1,'gbLAB::ShiftedDisplacementKernelFT::normal']]],
-  ['num_8',['num',['../classgb_l_a_b_1_1_best_rational_approximation.html#abd368c8e2ef99fb35d83e92a325df4a8',1,'gbLAB::BestRationalApproximation']]],
-  ['number_9',['number',['../classgb_l_a_b_1_1_rational_approximations.html#ad15d80cc7da86b3b1da8e705bd9e0039',1,'gbLAB::RationalApproximations']]],
-  ['numberofdensitystates_10',['numberOfDensityStates',['../classgb_l_a_b_1_1_landau_wang_t_p.html#a4028eb267de4f3158bc51c81139e1cfc',1,'gbLAB::LandauWangTP']]],
-  ['numberofenergystates_11',['numberOfEnergyStates',['../classgb_l_a_b_1_1_landau_wang_t_p.html#a3a5ca487197e60c09fa7c43fdb3700f0',1,'gbLAB::LandauWangTP']]]
+  ['newvieweraction_5',['newViewerAction',['../structo_i_l_a_b_1_1oi_viewer_main_window.html#ae3eae8dfc1473fc9eb8a107ca5e112e0',1,'oILAB::oiViewerMainWindow']]],
+  ['nimages_6',['nimages',['../classo_i_l_a_b_1_1_dislocation_dipole.html#a9e0ae053aec307d7e9832533fcdebdd1',1,'oILAB::DislocationDipole::nImages'],['../classo_i_l_a_b_1_1_dislocations.html#a8824ff99c5f1ddef17b66bf55315a174',1,'oILAB::Dislocations::nImages']]],
+  ['normal_7',['normal',['../classo_i_l_a_b_1_1_displacement_kernel.html#a6f7014f7c704a9338a2201b7b3724286',1,'oILAB::DisplacementKernel::normal'],['../classo_i_l_a_b_1_1_shifted_displacement_kernel_f_t.html#a2c8f323063eff3703b94aeb5a58b64d3',1,'oILAB::ShiftedDisplacementKernelFT::normal']]],
+  ['num_8',['num',['../classo_i_l_a_b_1_1_best_rational_approximation.html#a417b1f7e88e0cf3e1aefb198c0fb7bec',1,'oILAB::BestRationalApproximation']]],
+  ['number_9',['number',['../classo_i_l_a_b_1_1_rational_approximations.html#a4ae9e3c7537a82f0d4e38634ab90b204',1,'oILAB::RationalApproximations']]],
+  ['numberofdensitystates_10',['numberOfDensityStates',['../classo_i_l_a_b_1_1_landau_wang_t_p.html#afe7c0f75a5cf624df0cccbeb49cc30a7',1,'oILAB::LandauWangTP']]],
+  ['numberofenergystates_11',['numberOfEnergyStates',['../classo_i_l_a_b_1_1_landau_wang_t_p.html#a0b8d01cf5ec82e7ce31679b9efa73fb4',1,'oILAB::LandauWangTP']]]
 ];

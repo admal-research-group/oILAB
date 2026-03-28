@@ -1,10 +1,10 @@
 var classpyoilab_1_1_py_reciprocal_lattice_vector =
 [
     [ "IntScalarType", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#ad5f260e5df09913f714d16f6108c46cf", null ],
-    [ "Lattice", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#ac1f05e8c4ac7e53fe9089c6e67741801", null ],
+    [ "Lattice", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#acb6d8b602b3d628663b0aebb388b9517", null ],
     [ "MatrixDimD", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#aed31d33efbd86dd5514e4e3a170e77c8", null ],
     [ "MatrixDimI", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#ac17d8b56086c79491a7e18975e410ece", null ],
-    [ "ReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a8d02e0089e5fe3b5d4d99d4b86b878f3", null ],
+    [ "ReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a8f242d65eb1be39cf5434163e6f0e634", null ],
     [ "VectorDimD", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a3199e81db3b22425996af6080d54f321", null ],
     [ "VectorDimI", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#ab535734e2a48abaf8f43ad12a6ae6832", null ],
     [ "PyReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#af0a025b5952732c2a21a5e3768f27c3d", null ],
@@ -23,7 +23,7 @@ var classpyoilab_1_1_py_reciprocal_lattice_vector =
     [ "operator+=", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a1e61efec67b81a19363f0eb2a6ac7156", null ],
     [ "operator-", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#ab5ac000a1fd69a76297c8ae33c4f586e", null ],
     [ "operator-=", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a2d8c86754ad918b9337448cefd776535", null ],
-    [ "planeIndexOfPoint", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#aeea326edcf4e2f4e6d856c0428438d0c", null ],
+    [ "planeIndexOfPoint", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a91e55efb206ebb979a74d7054b5be2af", null ],
     [ "planeIndexOfPoint", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a89e8b5b37be9ad812636d9837c4cd798", null ],
     [ "rlv", "classpyoilab_1_1_py_reciprocal_lattice_vector.html#a1c7e34aed7d9e10fd0c476be5d6629c2", null ]
 ];

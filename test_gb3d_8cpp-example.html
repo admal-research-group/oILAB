@@ -102,58 +102,65 @@ $(document).ready(function(){initNavTree('test_gb3d_8cpp-example.html',''); init
 <div class="contents">
 <p>This examples demonstrates the construction of a grain boundary in a 3D bicrystal. We will construct a [111] tilt \(\Sigma 273\) - STGB (5 6 -11) and an ATGB (17 23 -40)(145 136 -281).</p>
 <ol type="1">
-<li>Initialize the first lattice L1 <div class="fragment"><div class="line">    Eigen::Matrix3d A;</div>
-<div class="line">    A &lt;&lt; 0.0, 0.5, 0.5,</div>
-<div class="line">         0.5, 0.0, 0.5,</div>
-<div class="line">         0.5, 0.5, 0.0;</div>
-<div class="line">    Lattice&lt;dim&gt; L1(A);</div>
+<li>Initialize the first lattice L1 <div class="fragment"><div class="line">  Eigen::Matrix3d A;</div>
+<div class="line">  A &lt;&lt; 0.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5, 0.5, 0.0;</div>
+<div class="line">  Lattice&lt;dim&gt; L1(A);</div>
 </div><!-- fragment --></li>
-<li>Define the tilt axis \([1\,1\,1]\) as a reciprocal vector in L1 <div class="fragment"><div class="line">    Eigen::Vector3d axis;</div>
-<div class="line">    axis &lt;&lt; 1,1,1;</div>
-<div class="line">    ReciprocalLatticeVector&lt;dim&gt; rv(L1.reciprocalLatticeDirection(axis).reciprocalLatticeVector());</div>
+<li>Define the tilt axis \([1\,1\,1]\) as a reciprocal vector in L1 <div class="fragment"><div class="line">  Eigen::Vector3d axis;</div>
+<div class="line">  axis &lt;&lt; 1, 1, 1;</div>
+<div class="line">  ReciprocalLatticeVector&lt;dim&gt; rv(</div>
+<div class="line">      L1.reciprocalLatticeDirection(axis).reciprocalLatticeVector());</div>
 </div><!-- fragment --></li>
-<li>Form the second lattice L2 by rotating L1 about the tilt axis <div class="fragment"><div class="line">    <span class="keywordtype">double</span> angle= 6.0089831977661480877*std::numbers::pi/180;</div>
-<div class="line">    Eigen::AngleAxisd rotation(angle,axis.normalized());</div>
-<div class="line">    Lattice&lt;dim&gt; L2(A,rotation.matrix());</div>
+<li>Form the second lattice L2 by rotating L1 about the tilt axis <div class="fragment"><div class="line">  <span class="keywordtype">double</span> angle = 6.0089831977661480877 * std::numbers::pi / 180;</div>
+<div class="line">  Eigen::AngleAxisd rotation(angle, axis.normalized());</div>
+<div class="line">  Lattice&lt;dim&gt; L2(A, rotation.matrix());</div>
 </div><!-- fragment --></li>
-<li>Define the grain boundary normal (w.r.t lattice 1) and form the GB <div class="fragment"><div class="line">        ReciprocalLatticeVector&lt;dim&gt; normal(L1);</div>
-<div class="line">        normal &lt;&lt; 17,23,-40;</div>
-<div class="line">        <span class="comment">//normal &lt;&lt; 5,6,-11;</span></div>
-<div class="line">        Gb&lt;dim&gt; gb(bc,normal);</div>
+<li>Define the grain boundary normal (w.r.t lattice 1) and form the GB <div class="fragment"><div class="line">    ReciprocalLatticeVector&lt;dim&gt; normal(L1);</div>
+<div class="line">    normal &lt;&lt; 17, 23, -40;</div>
+<div class="line">    <span class="comment">// normal &lt;&lt; 5,6,-11;</span></div>
+<div class="line">    Gb&lt;dim&gt; gb(bc, normal);</div>
 </div><!-- fragment --></li>
 <li>To print, construct a grain boundary bounded by a box formed by three CSL vectors - period vector and vectors along the tilt axis and the grain boundary normal. Period vector is the shortest CSL vector normal to the tilt axis and the grain boundary normal.<ol type="a">
-<li>Calculate the period vector (periodC). glideA is a vector in lattice L1, and periodC is the shortest CSL vector along glideA. <div class="fragment"><div class="line">        LatticeVector&lt;dim&gt; glideA(rv.cross(gb.nA.reciprocalLatticeVector()).latticeVector());</div>
-<div class="line">        LatticeVector&lt;dim&gt; periodC(bc.getLatticeDirectionInC(glideA).latticeVector());</div>
+<li>Calculate the period vector (periodC). glideA is a vector in lattice L1, and periodC is the shortest CSL vector along glideA. <div class="fragment"><div class="line">    LatticeVector&lt;dim&gt; glideA(</div>
+<div class="line">        rv.cross(gb.nA.reciprocalLatticeVector()).latticeVector());</div>
+<div class="line">    LatticeVector&lt;dim&gt; periodC(</div>
+<div class="line">        bc.getLatticeDirectionInC(glideA).latticeVector());</div>
 </div><!-- fragment --></li>
-<li>Calculate the CSL vector along the normal (normalC). normalA is a vector in lattice L1, and normalC is the shortest CSL vector along normalA. <div class="fragment"><div class="line">        <span class="keyword">auto</span> basis= bc.csl.planeParallelLatticeBasis(gb.bc.getReciprocalLatticeDirectionInC(gb.nA.reciprocalLatticeVector()),<span class="keyword">true</span>);</div>
-<div class="line">        LatticeVector&lt;dim&gt; nonParallelC(basis[0].latticeVector());</div>
+<li>Calculate the CSL vector along the normal (normalC). normalA is a vector in lattice L1, and normalC is the shortest CSL vector along normalA. <div class="fragment"><div class="line">    <span class="keyword">auto</span> basis = bc.csl.planeParallelLatticeBasis(</div>
+<div class="line">        gb.bc.getReciprocalLatticeDirectionInC(gb.nA.reciprocalLatticeVector()),</div>
+<div class="line">        <span class="keyword">true</span>);</div>
+<div class="line">    LatticeVector&lt;dim&gt; nonParallelC(basis[0].latticeVector());</div>
 </div><!-- fragment --></li>
-<li>Calculate the CSL vector along the tilt axis (vectorAlongAxisC). vectorAlongAxisA is a vector in lattice L1, and vectorAlongAxisC is the shortest CSL vector along vectorAlongAxisA. <div class="fragment"><div class="line">        LatticeVector&lt;dim&gt; vectorAlongAxisA(bc.A.latticeDirection(rv.cartesian()).latticeVector());</div>
-<div class="line">        LatticeVector&lt;dim&gt; vectorAlongAxisC(bc.getLatticeDirectionInC(vectorAlongAxisA).latticeVector());</div>
+<li>Calculate the CSL vector along the tilt axis (vectorAlongAxisC). vectorAlongAxisA is a vector in lattice L1, and vectorAlongAxisC is the shortest CSL vector along vectorAlongAxisA. <div class="fragment"><div class="line">    LatticeVector&lt;dim&gt; vectorAlongAxisA(</div>
+<div class="line">        bc.A.latticeDirection(rv.cartesian()).latticeVector());</div>
+<div class="line">    LatticeVector&lt;dim&gt; vectorAlongAxisC(</div>
+<div class="line">        bc.getLatticeDirectionInC(vectorAlongAxisA).latticeVector());</div>
 </div><!-- fragment --></li>
 </ol>
 </li>
-<li>Form the box vectors and output the grain boundary to a file <div class="fragment"><div class="line">        std::vector&lt;LatticeVector&lt;dim&gt;&gt; boxVectors;</div>
-<div class="line">        boxVectors.push_back(nonParallelC);</div>
-<div class="line">        boxVectors.push_back(periodC);</div>
-<div class="line">        boxVectors.push_back(vectorAlongAxisC);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Input box vectors = &quot;</span> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        gb.box(boxVectors,0.5,2,<span class="stringliteral">&quot;gb.txt&quot;</span>,<span class="keyword">true</span>);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Output box vectors = &quot;</span> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
+<li>Form the box vectors and output the grain boundary to a file <div class="fragment"><div class="line">    std::vector&lt;LatticeVector&lt;dim&gt;&gt; boxVectors;</div>
+<div class="line">    boxVectors.push_back(nonParallelC);</div>
+<div class="line">    boxVectors.push_back(periodC);</div>
+<div class="line">    boxVectors.push_back(vectorAlongAxisC);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Input box vectors = &quot;</span> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    gb.box(boxVectors, 0.5, 2, <span class="stringliteral">&quot;gb.txt&quot;</span>, <span class="keyword">true</span>);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Output box vectors = &quot;</span> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
 </div><!-- fragment --> Full code:</li>
 </ol>
-<div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="_lattice_module_8h.html">LatticeModule.h</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="_text_file_parser_8h.html">TextFileParser.h</a>&gt;</span></div>
+<div class="fragment"><div class="line"><span class="preprocessor">#include &quot;../../include/IO/TextFileParser.h&quot;</span></div>
+<div class="line"><span class="preprocessor">#include &quot;../../include/Lattices/LatticeModule.h&quot;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;numbers&gt;</span></div>
 <div class="line"> </div>
-<div class="line"><span class="comment">/* This examples demonstrates the construction of a grain boundary in a 3D bicrystal.</span></div>
-<div class="line"><span class="comment"> * The following is a snippet from the output generated by testGenerateGBs. In this example,</span></div>
+<div class="line"><span class="comment">/* This examples demonstrates the construction of a grain boundary in a 3D</span></div>
+<div class="line"><span class="comment">bicrystal.</span></div>
+<div class="line"><span class="comment"> * The following is a snippet from the output generated by testGenerateGBs. In</span></div>
+<div class="line"><span class="comment">this example,</span></div>
 <div class="line"><span class="comment"> * we will construct a [111] tilt Sigma 273 - STGB (5 6 -11) and an</span></div>
 <div class="line"><span class="comment"> * ATGB (17  23 -40)(145  136 -281).</span></div>
 <div class="line"><span class="comment">Lattice A =</span></div>
@@ -164,22 +171,22 @@ $(document).ready(function(){initNavTree('test_gb3d_8cpp-example.html',''); init
 <div class="line"><span class="comment">1</span></div>
 <div class="line"><span class="comment">1</span></div>
 <div class="line"><span class="comment">1</span></div>
-<div class="line"><span class="comment">Cartesian coordinates of axis = </span></div>
+<div class="line"><span class="comment">Cartesian coordinates of axis =</span></div>
 <div class="line"><span class="comment">1 1 1</span></div>
 <div class="line"><span class="comment">###################################################</span></div>
 <div class="line"><span class="comment">Misorientation angle = 6.0089831977661480877; Sigma = 273</span></div>
 <div class="line"><span class="comment"></span> </div>
-<div class="line"><span class="comment">Lattice B = </span></div>
+<div class="line"><span class="comment">Lattice B =</span></div>
 <div class="line"><span class="comment">0.001831501831501824995  0.52930402930402931094  0.46886446886446891957</span></div>
 <div class="line"><span class="comment"> 0.46886446886446891957 0.001831501831501824995  0.52930402930402931094</span></div>
 <div class="line"><span class="comment"> 0.52930402930402931094  0.46886446886446891957 0.001831501831501824995</span></div>
 <div class="line"><span class="comment"></span> </div>
-<div class="line"><span class="comment">Parallel CSL basis Cp= </span></div>
+<div class="line"><span class="comment">Parallel CSL basis Cp=</span></div>
 <div class="line"><span class="comment">                    272.5                      -7.5                    -136.5</span></div>
 <div class="line"><span class="comment">                      145                        -8                    -136.5</span></div>
 <div class="line"><span class="comment">                    128.5                       0.5 8.8817841970012523234e-16</span></div>
 <div class="line"><span class="comment"></span> </div>
-<div class="line"><span class="comment">Parallel DSCL basis Dp = </span></div>
+<div class="line"><span class="comment">Parallel DSCL basis Dp =</span></div>
 <div class="line"><span class="comment">      0.998168498168498175                       -7.5                        0.5</span></div>
 <div class="line"><span class="comment">    0.53113553113553113594                         -8                        0.5</span></div>
 <div class="line"><span class="comment">    0.47069597069597068906                        0.5 -3.2534008047623634856e-18</span></div>
@@ -191,7 +198,7 @@ $(document).ready(function(){initNavTree('test_gb3d_8cpp-example.html',''); init
 <div class="line"><span class="comment">d2 =   0.02930402930402919992  0.001831501831501824995 -0.031135531135531024916</span></div>
 <div class="line"><span class="comment">Integer coordinates of d2:-16  15 257</span></div>
 <div class="line"><span class="comment"></span> </div>
-<div class="line"><span class="comment">Reduced shift vectors: </span></div>
+<div class="line"><span class="comment">Reduced shift vectors:</span></div>
 <div class="line"><span class="comment">s1 = 0.0018315018315023801065    0.4688644688644695302   0.52930402930402986605</span></div>
 <div class="line"><span class="comment">s2 =   0.52930402930402831174 0.0018315018315036013519   0.46886446886445387605</span></div>
 <div class="line"><span class="comment"></span> </div>
@@ -205,106 +212,106 @@ $(document).ready(function(){initNavTree('test_gb3d_8cpp-example.html',''); init
 <div class="line"><span class="comment">nB =   6   5 -11</span></div>
 <div class="line"><span class="comment">GB period = 11.68332144554794283</span></div>
 <div class="line"><span class="comment">CSL plane distance (Height)= 3.3726843908079144896</span></div>
-<div class="line"><span class="comment">Glide disconnection Burgers vector =   0.031135531135532801272   -0.02930402930402919992 -0.0018315018315027131734; norm = 0.042796049251092468935</span></div>
-<div class="line"><span class="comment">Step height of glide disconnection = 0.40768712416676056165</span></div>
-<div class="line"><span class="comment">Step height of non-glide disconnection 1= 0.22237479499852241815</span></div>
-<div class="line"><span class="comment">Step height of non-glide disconnection 2= 0.18531232916825057799</span></div>
+<div class="line"><span class="comment">Glide disconnection Burgers vector =   0.031135531135532801272</span></div>
+<div class="line"><span class="comment">-0.02930402930402919992 -0.0018315018315027131734; norm =</span></div>
+<div class="line"><span class="comment">0.042796049251092468935 Step height of glide disconnection =</span></div>
+<div class="line"><span class="comment">0.40768712416676056165 Step height of non-glide disconnection 1=</span></div>
+<div class="line"><span class="comment">0.22237479499852241815 Step height of non-glide disconnection 2=</span></div>
+<div class="line"><span class="comment">0.18531232916825057799</span></div>
 <div class="line"><span class="comment">-----------------------------------------------------------------------------</span></div>
 <div class="line"><span class="comment">2) Inclination = 1.9451190845039707522</span></div>
 <div class="line"><span class="comment">nA =  17  23 -40</span></div>
 <div class="line"><span class="comment">nB =  145  136 -281</span></div>
 <div class="line"><span class="comment">GB period = 99.36548696604899078</span></div>
 <div class="line"><span class="comment">CSL plane distance (Height)= 0.39655776945623399943</span></div>
-<div class="line"><span class="comment">Glide disconnection Burgers vector =  0.80769230769237765344  -0.7307692307690558664 -0.07692307692309441336; norm = 1.0919284281982737372</span></div>
+<div class="line"><span class="comment">Glide disconnection Burgers vector =  0.80769230769237765344</span></div>
+<div class="line"><span class="comment">-0.7307692307690558664 -0.07692307692309441336; norm = 1.0919284281982737372</span></div>
 <div class="line"><span class="comment">Step height of glide disconnection = 0.091513331645593942731</span></div>
 <div class="line"><span class="comment">Step height of non-glide disconnection 1= -0.18593184794961481465</span></div>
 <div class="line"><span class="comment">Step height of non-glide disconnection 2= 0.19755258845548662183</span></div>
 <div class="line"><span class="comment"></span> </div>
 <div class="line"><span class="comment">*/</span></div>
 <div class="line"> </div>
+<div class="line"><span class="keyword">using namespace </span><a class="code hl_namespace" href="namespaceo_i_l_a_b.html">oILAB</a>;</div>
+<div class="line"><span class="keywordtype">int</span> <a id="a0" name="a0"></a><a class="code hl_function" href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a>() {</div>
+<div class="line">  <span class="keyword">const</span> <span class="keywordtype">int</span> dim = 3;</div>
+<div class="line">  Eigen::Matrix3d A;</div>
+<div class="line">  A &lt;&lt; 0.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5, 0.5, 0.0;</div>
+<div class="line">  <a id="_a1" name="_a1"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_lattice.html">Lattice&lt;dim&gt;</a> L1(A);</div>
+<div class="line">  Eigen::Vector3d axis;</div>
+<div class="line">  axis &lt;&lt; 1, 1, 1;</div>
+<div class="line">  <a id="_a2" name="_a2"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;dim&gt;</a> rv(</div>
+<div class="line">      L1.<a id="a3" name="a3"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_lattice.html#a372b574728d858da0763a16be397e882">reciprocalLatticeDirection</a>(axis).reciprocalLatticeVector());</div>
+<div class="line">  <span class="keywordtype">double</span> angle = 6.0089831977661480877 * std::numbers::pi / 180;</div>
+<div class="line">  Eigen::AngleAxisd rotation(angle, axis.normalized());</div>
+<div class="line">  <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice.html">Lattice&lt;dim&gt;</a> L2(A, rotation.matrix());</div>
+<div class="line">  <span class="keywordflow">try</span> {</div>
+<div class="line">    <a id="_a4" name="_a4"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_bi_crystal.html">BiCrystal&lt;dim&gt;</a> bc(L1, L2);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Sigma = &quot;</span> &lt;&lt; bc.<a id="a5" name="a5"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_bi_crystal.html#af47f4a4dc18ffec16a0556f47aa1eeed">sigma</a> &lt;&lt; std::endl;</div>
+<div class="line">    <a class="code hl_class" href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;dim&gt;</a> normal(L1);</div>
+<div class="line">    normal &lt;&lt; 17, 23, -40;</div>
+<div class="line">    <span class="comment">// normal &lt;&lt; 5,6,-11;</span></div>
+<div class="line">    <a id="_a6" name="_a6"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_gb.html">Gb&lt;dim&gt;</a> gb(bc, normal);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t A: &quot;</span>;</div>
+<div class="line">    std::cout &lt;&lt; gb.<a id="a7" name="a7"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t B: &quot;</span>;</div>
+<div class="line">    std::cout &lt;&lt; gb.<a id="a8" name="a8"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034">nB</a> &lt;&lt; std::endl;</div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">using namespace </span><a class="code hl_namespace" href="namespacegb_l_a_b.html">gbLAB</a>;</div>
-<div class="line"><span class="keywordtype">int</span> <a id="a0" name="a0"></a><a class="code hl_function" href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a>()</div>
-<div class="line">{</div>
-<div class="line">    <span class="keyword">const</span> <span class="keywordtype">int</span> dim=3;</div>
-<div class="line">    Eigen::Matrix3d A;</div>
-<div class="line">    A &lt;&lt; 0.0, 0.5, 0.5,</div>
-<div class="line">         0.5, 0.0, 0.5,</div>
-<div class="line">         0.5, 0.5, 0.0;</div>
-<div class="line">    <a id="_a1" name="_a1"></a><a class="code hl_class" href="classgb_l_a_b_1_1_lattice.html">Lattice&lt;dim&gt;</a> L1(A);</div>
-<div class="line">    Eigen::Vector3d axis;</div>
-<div class="line">    axis &lt;&lt; 1,1,1;</div>
-<div class="line">    <a id="_a2" name="_a2"></a><a class="code hl_class" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;dim&gt;</a> rv(L1.<a id="a3" name="a3"></a><a class="code hl_function" href="classgb_l_a_b_1_1_lattice.html#af1db05c3ef380d31099a0e11bd8606df">reciprocalLatticeDirection</a>(axis).reciprocalLatticeVector());</div>
-<div class="line">    <span class="keywordtype">double</span> angle= 6.0089831977661480877*std::numbers::pi/180;</div>
-<div class="line">    Eigen::AngleAxisd rotation(angle,axis.normalized());</div>
-<div class="line">    <a class="code hl_class" href="classgb_l_a_b_1_1_lattice.html">Lattice&lt;dim&gt;</a> L2(A,rotation.matrix());</div>
-<div class="line">    <span class="keywordflow">try</span></div>
-<div class="line">    {</div>
-<div class="line">        <a id="_a4" name="_a4"></a><a class="code hl_class" href="classgb_l_a_b_1_1_bi_crystal.html">BiCrystal&lt;dim&gt;</a> bc(L1,L2);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Sigma = &quot;</span> &lt;&lt; bc.<a id="a5" name="a5"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_bi_crystal.html#a91d185fabf605790db3897b6046ad5f1">sigma</a> &lt;&lt; std::endl;</div>
-<div class="line">        <a class="code hl_class" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;dim&gt;</a> normal(L1);</div>
-<div class="line">        normal &lt;&lt; 17,23,-40;</div>
-<div class="line">        <span class="comment">//normal &lt;&lt; 5,6,-11;</span></div>
-<div class="line">        <a id="_a6" name="_a6"></a><a class="code hl_class" href="classgb_l_a_b_1_1_gb.html">Gb&lt;dim&gt;</a> gb(bc,normal);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t A: &quot;</span>;</div>
-<div class="line">        std::cout &lt;&lt; gb.<a id="a7" name="a7"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t B: &quot;</span>;</div>
-<div class="line">        std::cout &lt;&lt; gb.<a id="a8" name="a8"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda">nB</a> &lt;&lt; std::endl;</div>
-<div class="line"> </div>
-<div class="line"> </div>
-<div class="line">        <a id="_a9" name="_a9"></a><a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> glideA(rv.<a id="a10" name="a10"></a><a class="code hl_function" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a3064b762d1fad0462279a5ac3ac82926">cross</a>(gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a>.reciprocalLatticeVector()).latticeVector());</div>
-<div class="line">        <a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> periodC(bc.<a id="a11" name="a11"></a><a class="code hl_function" href="classgb_l_a_b_1_1_bi_crystal.html#a9339c24216f28a12633e8ee5ee9b36ab">getLatticeDirectionInC</a>(glideA).latticeVector());</div>
-<div class="line">        <span class="keyword">auto</span> basis= bc.<a id="a12" name="a12"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_bi_crystal.html#a96455b970ce7392af39fd2d309b4dbbf">csl</a>.planeParallelLatticeBasis(gb.<a id="a13" name="a13"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a6df86b66784710a12868156dc6a18ed7">bc</a>.getReciprocalLatticeDirectionInC(gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a>.reciprocalLatticeVector()),<span class="keyword">true</span>);</div>
-<div class="line">        <a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> nonParallelC(basis[0].latticeVector());</div>
-<div class="line">        <a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> vectorAlongAxisA(bc.<a id="a14" name="a14"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_bi_crystal.html#a004b2d2181809cafd1107472dbc91f71">A</a>.latticeDirection(rv.<a id="a15" name="a15"></a><a class="code hl_function" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a409168bf83ae7fd0a9ace2521976b468">cartesian</a>()).latticeVector());</div>
-<div class="line">        <a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> vectorAlongAxisC(bc.<a class="code hl_function" href="classgb_l_a_b_1_1_bi_crystal.html#a9339c24216f28a12633e8ee5ee9b36ab">getLatticeDirectionInC</a>(vectorAlongAxisA).latticeVector());</div>
-<div class="line">        std::vector&lt;LatticeVector&lt;dim&gt;&gt; boxVectors;</div>
-<div class="line">        boxVectors.push_back(nonParallelC);</div>
-<div class="line">        boxVectors.push_back(periodC);</div>
-<div class="line">        boxVectors.push_back(vectorAlongAxisC);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Input box vectors = &quot;</span> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        gb.<a id="a16" name="a16"></a><a class="code hl_function" href="classgb_l_a_b_1_1_gb.html#a95acef4301b175db6b26e859e91840ac">box</a>(boxVectors,0.5,2,<span class="stringliteral">&quot;gb.txt&quot;</span>,<span class="keyword">true</span>);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Output box vectors = &quot;</span> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
-<div class="line">    }</div>
-<div class="line">    <span class="keywordflow">catch</span>(std::runtime_error&amp; e)</div>
-<div class="line">    {</div>
-<div class="line">        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;</div>
-<div class="line">        <span class="keywordflow">return</span> -1;</div>
-<div class="line">    }</div>
-<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">    <a id="_a9" name="_a9"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> glideA(</div>
+<div class="line">        rv.<a id="a10" name="a10"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html#abf251c60d3f0e910da24feb4daedcdab">cross</a>(gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a>.reciprocalLatticeVector()).latticeVector());</div>
+<div class="line">    <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> periodC(</div>
+<div class="line">        bc.<a id="a11" name="a11"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_bi_crystal.html#a97fd274c8e51161bbe1288ad475989d9">getLatticeDirectionInC</a>(glideA).latticeVector());</div>
+<div class="line">    <span class="keyword">auto</span> basis = bc.<a id="a12" name="a12"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_bi_crystal.html#ac271622388b204c3cc1abfb6fad965f4">csl</a>.planeParallelLatticeBasis(</div>
+<div class="line">        gb.<a id="a13" name="a13"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#ad3abfc0694ee6f73bd98d40f42fca5bf">bc</a>.getReciprocalLatticeDirectionInC(gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a>.reciprocalLatticeVector()),</div>
+<div class="line">        <span class="keyword">true</span>);</div>
+<div class="line">    <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> nonParallelC(basis[0].latticeVector());</div>
+<div class="line">    <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> vectorAlongAxisA(</div>
+<div class="line">        bc.<a id="a14" name="a14"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_bi_crystal.html#aa1b66ca5dc6240072f68854ef449bcf1">A</a>.latticeDirection(rv.<a id="a15" name="a15"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html#ab9ae6d8d6ace095d5b6dea97164b2799">cartesian</a>()).latticeVector());</div>
+<div class="line">    <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;dim&gt;</a> vectorAlongAxisC(</div>
+<div class="line">        bc.<a class="code hl_function" href="classo_i_l_a_b_1_1_bi_crystal.html#a97fd274c8e51161bbe1288ad475989d9">getLatticeDirectionInC</a>(vectorAlongAxisA).latticeVector());</div>
+<div class="line">    std::vector&lt;LatticeVector&lt;dim&gt;&gt; boxVectors;</div>
+<div class="line">    boxVectors.push_back(nonParallelC);</div>
+<div class="line">    boxVectors.push_back(periodC);</div>
+<div class="line">    boxVectors.push_back(vectorAlongAxisC);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Input box vectors = &quot;</span> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    gb.<a id="a16" name="a16"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_gb.html#ae7481b1779317ed8ee0959c6301aec82">box</a>(boxVectors, 0.5, 2, <span class="stringliteral">&quot;gb.txt&quot;</span>, <span class="keyword">true</span>);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Output box vectors = &quot;</span> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[0].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[1].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; boxVectors[2].cartesian().transpose() &lt;&lt; std::endl;</div>
+<div class="line">  } <span class="keywordflow">catch</span> (std::runtime_error &amp;e) {</div>
+<div class="line">    std::cout &lt;&lt; e.what() &lt;&lt; std::endl;</div>
+<div class="line">    <span class="keywordflow">return</span> -1;</div>
+<div class="line">  }</div>
+<div class="line">  <span class="keywordflow">return</span> 0;</div>
 <div class="line">}</div>
-<div class="ttc" id="a_lattice_module_8h_html"><div class="ttname"><a href="_lattice_module_8h.html">LatticeModule.h</a></div></div>
-<div class="ttc" id="a_text_file_parser_8h_html"><div class="ttname"><a href="_text_file_parser_8h.html">TextFileParser.h</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html">gbLAB::BiCrystal</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00027">BiCrystal.h:29</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a004b2d2181809cafd1107472dbc91f71"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a004b2d2181809cafd1107472dbc91f71">gbLAB::BiCrystal::A</a></div><div class="ttdeci">const Lattice&lt; dim &gt; &amp; A</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00054">BiCrystal.h:54</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a91d185fabf605790db3897b6046ad5f1"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a91d185fabf605790db3897b6046ad5f1">gbLAB::BiCrystal::sigma</a></div><div class="ttdeci">const int sigma</div><div class="ttdoc">if , else</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00080">BiCrystal.h:80</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a9339c24216f28a12633e8ee5ee9b36ab"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a9339c24216f28a12633e8ee5ee9b36ab">gbLAB::BiCrystal::getLatticeDirectionInC</a></div><div class="ttdeci">LatticeDirection&lt; dim &gt; getLatticeDirectionInC(const LatticeVector&lt; dim &gt; &amp;v) const</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00307">BiCrystal.cpp:307</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a96455b970ce7392af39fd2d309b4dbbf"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a96455b970ce7392af39fd2d309b4dbbf">gbLAB::BiCrystal::csl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; csl</div><div class="ttdoc">CSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00104">BiCrystal.h:104</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html">gbLAB::Gb</a></div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00015">Gb.h:16</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a26aa5b3aeaf23210985e90acafb79e1e"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">gbLAB::Gb::nA</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nA</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00033">Gb.h:33</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a6df86b66784710a12868156dc6a18ed7"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a6df86b66784710a12868156dc6a18ed7">gbLAB::Gb::bc</a></div><div class="ttdeci">const BiCrystal&lt; dim &gt; &amp; bc</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00029">Gb.h:29</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a95acef4301b175db6b26e859e91840ac"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a95acef4301b175db6b26e859e91840ac">gbLAB::Gb::box</a></div><div class="ttdeci">std::enable_if&lt; dm==2||dm==3, std::vector&lt; LatticeVector&lt; dim &gt; &gt; &gt;::type box(std::vector&lt; LatticeVector&lt; dim &gt; &gt; &amp;boxVectors, const double &amp;orthogonality, const int &amp;dsclFactor, std::string filename=&quot;&quot;, bool orient=false) const</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00058">Gb.cpp:58</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_ae08eb3d0273dc62df5454c86b16d1dda"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda">gbLAB::Gb::nB</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nB</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00037">Gb.h:37</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_html"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice.html">gbLAB::Lattice</a></div><div class="ttdoc">Lattice class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8h_source.html#l00033">Lattice.h:34</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_html_af1db05c3ef380d31099a0e11bd8606df"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice.html#af1db05c3ef380d31099a0e11bd8606df">gbLAB::Lattice::reciprocalLatticeDirection</a></div><div class="ttdeci">ReciprocalLatticeDirection&lt; dim &gt; reciprocalLatticeDirection(const VectorDimD &amp;d, const double &amp;tol=FLT_EPSILON) const</div><div class="ttdoc">Returns the reciprocal lattice direction along a vector.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8cpp_source.html#l00083">Lattice.cpp:83</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_vector_html"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice_vector.html">gbLAB::LatticeVector</a></div><div class="ttdoc">LatticeVector class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8h_source.html#l00018">LatticeVector.h:19</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">gbLAB::ReciprocalLatticeVector</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8h_source.html#l00014">ReciprocalLatticeVector.h:15</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html_a3064b762d1fad0462279a5ac3ac82926"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a3064b762d1fad0462279a5ac3ac82926">gbLAB::ReciprocalLatticeVector::cross</a></div><div class="ttdeci">std::enable_if&lt; dm==2, LatticeDirection&lt; dim &gt; &gt;::type cross(const ReciprocalLatticeVector&lt; dim &gt; &amp;other) const</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8cpp_source.html#l00171">ReciprocalLatticeVector.cpp:171</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html_a409168bf83ae7fd0a9ace2521976b468"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html#a409168bf83ae7fd0a9ace2521976b468">gbLAB::ReciprocalLatticeVector::cartesian</a></div><div class="ttdeci">VectorDimD cartesian() const</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8cpp_source.html#l00118">ReciprocalLatticeVector.cpp:118</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html">oILAB::BiCrystal</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00025">BiCrystal.h:27</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_a97fd274c8e51161bbe1288ad475989d9"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#a97fd274c8e51161bbe1288ad475989d9">oILAB::BiCrystal::getLatticeDirectionInC</a></div><div class="ttdeci">LatticeDirection&lt; dim &gt; getLatticeDirectionInC(const LatticeVector&lt; dim &gt; &amp;v) const</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00306">BiCrystal.cpp:306</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_aa1b66ca5dc6240072f68854ef449bcf1"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#aa1b66ca5dc6240072f68854ef449bcf1">oILAB::BiCrystal::A</a></div><div class="ttdeci">const Lattice&lt; dim &gt; &amp; A</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00052">BiCrystal.h:52</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_ac271622388b204c3cc1abfb6fad965f4"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#ac271622388b204c3cc1abfb6fad965f4">oILAB::BiCrystal::csl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; csl</div><div class="ttdoc">CSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00102">BiCrystal.h:102</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_af47f4a4dc18ffec16a0556f47aa1eeed"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#af47f4a4dc18ffec16a0556f47aa1eeed">oILAB::BiCrystal::sigma</a></div><div class="ttdeci">const int sigma</div><div class="ttdoc">if , else</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00078">BiCrystal.h:78</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html">oILAB::Gb</a></div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00013">Gb.h:13</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_a36d198e8d460734d17a482dc9cd59034"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034">oILAB::Gb::nB</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nB</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00036">Gb.h:36</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_a8998c60bb73d05c04369f180e6882669"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">oILAB::Gb::nA</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nA</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00032">Gb.h:32</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_ad3abfc0694ee6f73bd98d40f42fca5bf"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#ad3abfc0694ee6f73bd98d40f42fca5bf">oILAB::Gb::bc</a></div><div class="ttdeci">const BiCrystal&lt; dim &gt; &amp; bc</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00028">Gb.h:28</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_ae7481b1779317ed8ee0959c6301aec82"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#ae7481b1779317ed8ee0959c6301aec82">oILAB::Gb::box</a></div><div class="ttdeci">std::enable_if&lt; dm==2||dm==3, std::vector&lt; LatticeVector&lt; dim &gt; &gt; &gt;::type box(std::vector&lt; LatticeVector&lt; dim &gt; &gt; &amp;boxVectors, const double &amp;orthogonality, const int &amp;dsclFactor, std::string filename=&quot;&quot;, bool orient=false) const</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00066">Gb.cpp:66</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice.html">oILAB::Lattice</a></div><div class="ttdoc">Lattice class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8h_source.html#l00031">Lattice.h:31</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_html_a372b574728d858da0763a16be397e882"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice.html#a372b574728d858da0763a16be397e882">oILAB::Lattice::reciprocalLatticeDirection</a></div><div class="ttdeci">ReciprocalLatticeDirection&lt; dim &gt; reciprocalLatticeDirection(const VectorDimD &amp;d, const double &amp;tol=FLT_EPSILON) const</div><div class="ttdoc">Returns the reciprocal lattice direction along a vector.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8cpp_source.html#l00081">Lattice.cpp:81</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_vector_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice_vector.html">oILAB::LatticeVector</a></div><div class="ttdoc">LatticeVector class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8h_source.html#l00017">LatticeVector.h:18</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_reciprocal_lattice_vector_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html">oILAB::ReciprocalLatticeVector</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8h_source.html#l00013">ReciprocalLatticeVector.h:14</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_reciprocal_lattice_vector_html_ab9ae6d8d6ace095d5b6dea97164b2799"><div class="ttname"><a href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html#ab9ae6d8d6ace095d5b6dea97164b2799">oILAB::ReciprocalLatticeVector::cartesian</a></div><div class="ttdeci">VectorDimD cartesian() const</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8cpp_source.html#l00117">ReciprocalLatticeVector.cpp:117</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_reciprocal_lattice_vector_html_abf251c60d3f0e910da24feb4daedcdab"><div class="ttname"><a href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html#abf251c60d3f0e910da24feb4daedcdab">oILAB::ReciprocalLatticeVector::cross</a></div><div class="ttdeci">std::enable_if&lt; dm==2, LatticeDirection&lt; dim &gt; &gt;::type cross(const ReciprocalLatticeVector&lt; dim &gt; &amp;other) const</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8cpp_source.html#l00170">ReciprocalLatticeVector.cpp:170</a></div></div>
 <div class="ttc" id="amain_8cpp_html_a3c04138a5bfe5d72780bb7e82a18e627"><div class="ttname"><a href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a></div><div class="ttdeci">int main(int argc, char **argv)</div><div class="ttdef"><b>Definition</b> <a href="main_8cpp_source.html#l00012">main.cpp:12</a></div></div>
-<div class="ttc" id="anamespacegb_l_a_b_html"><div class="ttname"><a href="namespacegb_l_a_b.html">gbLAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:14</a></div></div>
+<div class="ttc" id="anamespaceo_i_l_a_b_html"><div class="ttname"><a href="namespaceo_i_l_a_b.html">oILAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:13</a></div></div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sat Mar 28 2026 00:15:04 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

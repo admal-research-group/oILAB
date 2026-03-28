@@ -1,4 +1,4 @@
 var _best_rational_approximation_8h =
 [
-    [ "gbLAB::BestRationalApproximation", "classgb_l_a_b_1_1_best_rational_approximation.html", "classgb_l_a_b_1_1_best_rational_approximation" ]
+    [ "oILAB::BestRationalApproximation", "classo_i_l_a_b_1_1_best_rational_approximation.html", "classo_i_l_a_b_1_1_best_rational_approximation" ]
 ];

@@ -1,12 +1,12 @@
 var classpyoilab_1_1_py_reciprocal_lattice_direction =
 [
     [ "IntScalarType", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#ae8edb481ed46f68353f39e6d419973f5", null ],
-    [ "Lattice", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a11fd76c0573b802d0faf111e1c86587b", null ],
+    [ "Lattice", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#ab9ec489248b82fc718e4a11d5e08b025", null ],
     [ "MatrixDimD", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a2c5ebcabd12c501ce31f3601316019ab", null ],
     [ "MatrixDimI", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a29e2b4a4cf0e52e332db5050905c7626", null ],
     [ "PyReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a060053dd1ab687b7f7a7bc6bb58fe2c1", null ],
-    [ "ReciprocalLatticeDirection", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a08c84982e6c741b63c108a2e21f699af", null ],
-    [ "ReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#ae6a0f3f3192d4557cef91934dff921b5", null ],
+    [ "ReciprocalLatticeDirection", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a1dbfbb7f271cdb3b009b03c658f2df1c", null ],
+    [ "ReciprocalLatticeVector", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a521c8fec7aa855fab50df5335631baeb", null ],
     [ "VectorDimD", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#ac114271926d1e718c7ed838185d94842", null ],
     [ "VectorDimI", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a31cbe8b51ac26c4f5afdd476b5e09d47", null ],
     [ "PyReciprocalLatticeDirection", "classpyoilab_1_1_py_reciprocal_lattice_direction.html#a83d1c20fe995fefc848291909e40c225", null ],

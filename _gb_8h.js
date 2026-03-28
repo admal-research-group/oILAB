@@ -1,4 +1,4 @@
 var _gb_8h =
 [
-    [ "gbLAB::Gb< dim >", "classgb_l_a_b_1_1_gb.html", "classgb_l_a_b_1_1_gb" ]
+    [ "oILAB::Gb< dim >", "classo_i_l_a_b_1_1_gb.html", "classo_i_l_a_b_1_1_gb" ]
 ];

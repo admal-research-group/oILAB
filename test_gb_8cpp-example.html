@@ -102,125 +102,134 @@ $(document).ready(function(){initNavTree('test_gb_8cpp-example.html',''); initRe
 <div class="contents">
 <p>This example demonstrates the computation of step heights and the use of Gb class</p>
 <ol type="1">
-<li>Initialize two lattices <div class="fragment"><div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> A(TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;A&quot;</span>,<span class="keyword">true</span>));</div>
-<div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> B(TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;B&quot;</span>,<span class="keyword">true</span>));</div>
-<div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> F(TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;F&quot;</span>,<span class="keyword">true</span>));</div>
+<li>Initialize two lattices <div class="fragment"><div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> A(</div>
+<div class="line">      TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;A&quot;</span>, <span class="keyword">true</span>));</div>
+<div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> B(</div>
+<div class="line">      TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;B&quot;</span>, <span class="keyword">true</span>));</div>
+<div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> F(</div>
+<div class="line">      TextFileParser(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;F&quot;</span>, <span class="keyword">true</span>));</div>
 <div class="line"> </div>
-<div class="line">    Lattice&lt;2&gt; L1(A);</div>
-<div class="line">    Lattice&lt;2&gt; L2(B,F);</div>
+<div class="line">  Lattice&lt;2&gt; L1(A);</div>
+<div class="line">  Lattice&lt;2&gt; L2(B, F);</div>
 </div><!-- fragment --></li>
-<li>Form the bicrystal <div class="fragment"><div class="line">        BiCrystal&lt;2&gt; bc(L1,L2);</div>
+<li>Form the bicrystal <div class="fragment"><div class="line">    BiCrystal&lt;2&gt; bc(L1, L2);</div>
 </div><!-- fragment --></li>
-<li>Define the grain boundary normal (w.r.t lattice 2) and form the GB <div class="fragment"><div class="line">        ReciprocalLatticeVector&lt;2&gt; rvec(L2);</div>
-<div class="line">        rvec &lt;&lt; 1,1;</div>
-<div class="line">        ReciprocalLatticeDirection&lt;2&gt; n(rvec);</div>
-<div class="line">        Gb&lt;2&gt; gb(bc,n);</div>
+<li>Define the grain boundary normal (w.r.t lattice 2) and form the GB <div class="fragment"><div class="line">    ReciprocalLatticeVector&lt;2&gt; rvec(L2);</div>
+<div class="line">    rvec &lt;&lt; 1, 1;</div>
+<div class="line">    ReciprocalLatticeDirection&lt;2&gt; n(rvec);</div>
+<div class="line">    Gb&lt;2&gt; gb(bc, n);</div>
 </div><!-- fragment --></li>
-<li>Define the Burgers vector \(b\) of a disconnection and compute the two step heights, \(h_{\mathcal A}\) and \(h_{\mathcal B}\). <div class="fragment"><div class="line">        LatticeVector&lt;2&gt; b(bc.dscl);</div>
-<div class="line">        b &lt;&lt; 1,1;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Step height A: &quot;</span>;</div>
-<div class="line">        <span class="keywordtype">double</span> stepHeightA= gb.stepHeightA(b);</div>
-<div class="line">        std::cout &lt;&lt; stepHeightA &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Step height B: &quot;</span>;</div>
-<div class="line">        <span class="keywordtype">double</span> stepHeightB= gb.stepHeightB(b);</div>
-<div class="line">        std::cout &lt;&lt; stepHeightB &lt;&lt; std::endl;</div>
+<li>Define the Burgers vector \(b\) of a disconnection and compute the two step heights, \(h_{\mathcal A}\) and \(h_{\mathcal B}\). <div class="fragment"><div class="line">    LatticeVector&lt;2&gt; b(bc.dscl);</div>
+<div class="line">    b &lt;&lt; 1, 1;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Step height A: &quot;</span>;</div>
+<div class="line">    <span class="keywordtype">double</span> stepHeightA = gb.stepHeightA(b);</div>
+<div class="line">    std::cout &lt;&lt; stepHeightA &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Step height B: &quot;</span>;</div>
+<div class="line">    <span class="keywordtype">double</span> stepHeightB = gb.stepHeightB(b);</div>
+<div class="line">    std::cout &lt;&lt; stepHeightB &lt;&lt; std::endl;</div>
 </div><!-- fragment --></li>
-<li>Compute the CSL plane spacing \(H\) parallel to the grain boundary <div class="fragment"><div class="line">        <span class="keyword">auto</span> dir= gb.bc.getReciprocalLatticeDirectionInC(n.reciprocalLatticeVector());</div>
-<div class="line">        <span class="keywordtype">double</span> cslPlaneSpacing= dir.planeSpacing();</div>
+<li>Compute the CSL plane spacing \(H\) parallel to the grain boundary <div class="fragment"><div class="line">    <span class="keyword">auto</span> dir =</div>
+<div class="line">        gb.bc.getReciprocalLatticeDirectionInC(n.reciprocalLatticeVector());</div>
+<div class="line">    <span class="keywordtype">double</span> cslPlaneSpacing = dir.planeSpacing();</div>
 </div><!-- fragment --></li>
-<li>Check the conditions: \( \mod(h_{\mathcal A} - h_{\mathcal B} - \textbf{b} \cdot \hat{\textbf{n}}_{\mathcal A}, H) = 0 \), where \(\hat{\textbf{n}}_{\mathcal A}\) and \(\hat{\textbf{n}}_{\mathcal B}\) are the outward unit normals to lattices \(\mathcal A\) and \(\mathcal B\), respectively. <div class="fragment"><div class="line">        <span class="keywordtype">double</span> error= abs(stepHeightA-stepHeightB - b.cartesian().dot(gb.nA.cartesian().normalized()));</div>
-<div class="line">        error= std::remainder(error,cslPlaneSpacing);</div>
+<li>Check the conditions: \( \mod(h_{\mathcal A} - h_{\mathcal B} - \textbf{b} \cdot \hat{\textbf{n}}_{\mathcal A}, H) = 0 \), where \(\hat{\textbf{n}}_{\mathcal A}\) and \(\hat{\textbf{n}}_{\mathcal B}\) are the outward unit normals to lattices \(\mathcal A\) and \(\mathcal B\), respectively. <div class="fragment"><div class="line">    <span class="keywordtype">double</span> error = abs(stepHeightA - stepHeightB -</div>
+<div class="line">                       b.cartesian().dot(gb.nA.cartesian().normalized()));</div>
+<div class="line">    error = std::remainder(error, cslPlaneSpacing);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keywordflow">if</span>((gb.nA.cartesian().normalized()+gb.nB.cartesian().normalized()).norm() &gt; 1e-5)</div>
-<div class="line">            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Cartesian coordinates of normalized nA and nB are not anti-parallel&quot;</span>);</div>
-<div class="line">        <span class="keywordflow">if</span>(error &gt; 1e-6)</div>
-<div class="line">            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Error in step height calculation&quot;</span>);</div>
+<div class="line">    <span class="keywordflow">if</span> ((gb.nA.cartesian().normalized() + gb.nB.cartesian().normalized())</div>
+<div class="line">            .norm() &gt; 1e-5)</div>
+<div class="line">      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Cartesian coordinates of normalized nA and nB &quot;</span></div>
+<div class="line">                               <span class="stringliteral">&quot;are not anti-parallel&quot;</span>);</div>
+<div class="line">    <span class="keywordflow">if</span> (error &gt; 1e-6)</div>
+<div class="line">      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Error in step height calculation&quot;</span>);</div>
 </div><!-- fragment --></li>
 </ol>
 <p>Full code:</p>
-<div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="_lattice_module_8h.html">LatticeModule.h</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="_text_file_parser_8h.html">TextFileParser.h</a>&gt;</span></div>
+<div class="fragment"><div class="line"><span class="preprocessor">#include &quot;../../include/IO/TextFileParser.h&quot;</span></div>
+<div class="line"><span class="preprocessor">#include &quot;../../include/Lattices/LatticeModule.h&quot;</span></div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">using namespace </span><a class="code hl_namespace" href="namespacegb_l_a_b.html">gbLAB</a>;</div>
-<div class="line"><span class="keywordtype">int</span> <a id="a0" name="a0"></a><a class="code hl_function" href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a>()</div>
-<div class="line">{</div>
-<div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> A(<a id="_a1" name="_a1"></a><a class="code hl_class" href="classgb_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;A&quot;</span>,<span class="keyword">true</span>));</div>
-<div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> B(<a class="code hl_class" href="classgb_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;B&quot;</span>,<span class="keyword">true</span>));</div>
-<div class="line">    <span class="keyword">const</span> <span class="keyword">auto</span> F(<a class="code hl_class" href="classgb_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double,2,2&gt;(<span class="stringliteral">&quot;F&quot;</span>,<span class="keyword">true</span>));</div>
+<div class="line"><span class="keyword">using namespace </span><a class="code hl_namespace" href="namespaceo_i_l_a_b.html">oILAB</a>;</div>
+<div class="line"><span class="keywordtype">int</span> <a id="a0" name="a0"></a><a class="code hl_function" href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a>() {</div>
+<div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> A(</div>
+<div class="line">      <a id="_a1" name="_a1"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;A&quot;</span>, <span class="keyword">true</span>));</div>
+<div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> B(</div>
+<div class="line">      <a class="code hl_class" href="classo_i_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;B&quot;</span>, <span class="keyword">true</span>));</div>
+<div class="line">  <span class="keyword">const</span> <span class="keyword">auto</span> F(</div>
+<div class="line">      <a class="code hl_class" href="classo_i_l_a_b_1_1_text_file_parser.html">TextFileParser</a>(<span class="stringliteral">&quot;bicrystal_2d.txt&quot;</span>).readMatrix&lt;double, 2, 2&gt;(<span class="stringliteral">&quot;F&quot;</span>, <span class="keyword">true</span>));</div>
 <div class="line"> </div>
-<div class="line">    <a id="_a2" name="_a2"></a><a class="code hl_class" href="classgb_l_a_b_1_1_lattice.html">Lattice&lt;2&gt;</a> L1(A);</div>
-<div class="line">    <a class="code hl_class" href="classgb_l_a_b_1_1_lattice.html">Lattice&lt;2&gt;</a> L2(B,F);</div>
-<div class="line">    <span class="keywordflow">try</span></div>
-<div class="line">    {</div>
-<div class="line">        <a id="_a3" name="_a3"></a><a class="code hl_class" href="classgb_l_a_b_1_1_bi_crystal.html">BiCrystal&lt;2&gt;</a> bc(L1,L2);</div>
-<div class="line">        <a id="_a4" name="_a4"></a><a class="code hl_class" href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;2&gt;</a> rvec(L2);</div>
-<div class="line">        rvec &lt;&lt; 1,1;</div>
-<div class="line">        <a id="_a5" name="_a5"></a><a class="code hl_struct" href="structgb_l_a_b_1_1_reciprocal_lattice_direction.html">ReciprocalLatticeDirection&lt;2&gt;</a> n(rvec);</div>
-<div class="line">        <a id="_a6" name="_a6"></a><a class="code hl_class" href="classgb_l_a_b_1_1_gb.html">Gb&lt;2&gt;</a> gb(bc,n);</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t A: &quot;</span>;</div>
-<div class="line">        std::cout &lt;&lt; gb.<a id="a7" name="a7"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a> &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t B: &quot;</span>;</div>
-<div class="line">        std::cout &lt;&lt; gb.<a id="a8" name="a8"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda">nB</a> &lt;&lt; std::endl;</div>
+<div class="line">  <a id="_a2" name="_a2"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_lattice.html">Lattice&lt;2&gt;</a> L1(A);</div>
+<div class="line">  <a class="code hl_class" href="classo_i_l_a_b_1_1_lattice.html">Lattice&lt;2&gt;</a> L2(B, F);</div>
+<div class="line">  <span class="keywordflow">try</span> {</div>
+<div class="line">    <a id="_a3" name="_a3"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_bi_crystal.html">BiCrystal&lt;2&gt;</a> bc(L1, L2);</div>
+<div class="line">    <a id="_a4" name="_a4"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html">ReciprocalLatticeVector&lt;2&gt;</a> rvec(L2);</div>
+<div class="line">    rvec &lt;&lt; 1, 1;</div>
+<div class="line">    <a id="_a5" name="_a5"></a><a class="code hl_struct" href="structo_i_l_a_b_1_1_reciprocal_lattice_direction.html">ReciprocalLatticeDirection&lt;2&gt;</a> n(rvec);</div>
+<div class="line">    <a id="_a6" name="_a6"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_gb.html">Gb&lt;2&gt;</a> gb(bc, n);</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t A: &quot;</span>;</div>
+<div class="line">    std::cout &lt;&lt; gb.<a id="a7" name="a7"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a> &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Miller indices w.r.t B: &quot;</span>;</div>
+<div class="line">    std::cout &lt;&lt; gb.<a id="a8" name="a8"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034">nB</a> &lt;&lt; std::endl;</div>
 <div class="line"> </div>
-<div class="line">        <a id="_a9" name="_a9"></a><a class="code hl_class" href="classgb_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;2&gt;</a> b(bc.<a id="a10" name="a10"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_bi_crystal.html#a255f64c2f26fb61cd60cb6e586d77180">dscl</a>);</div>
-<div class="line">        b &lt;&lt; 1,1;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Step height A: &quot;</span>;</div>
-<div class="line">        <span class="keywordtype">double</span> stepHeightA= gb.<a id="a11" name="a11"></a><a class="code hl_function" href="classgb_l_a_b_1_1_gb.html#a6c4082f445adce8f5f06cfa17eb68185">stepHeightA</a>(b);</div>
-<div class="line">        std::cout &lt;&lt; stepHeightA &lt;&lt; std::endl;</div>
-<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Step height B: &quot;</span>;</div>
-<div class="line">        <span class="keywordtype">double</span> stepHeightB= gb.<a id="a12" name="a12"></a><a class="code hl_function" href="classgb_l_a_b_1_1_gb.html#aecde6227ffba1ec751312f864c02a4a9">stepHeightB</a>(b);</div>
-<div class="line">        std::cout &lt;&lt; stepHeightB &lt;&lt; std::endl;</div>
-<div class="line">        <span class="keyword">auto</span> dir= gb.<a id="a13" name="a13"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a6df86b66784710a12868156dc6a18ed7">bc</a>.getReciprocalLatticeDirectionInC(n.<a id="a14" name="a14"></a><a class="code hl_function" href="structgb_l_a_b_1_1_reciprocal_lattice_direction.html#ad83aa3e6e80b52c56b4d36f11784bc8d">reciprocalLatticeVector</a>());</div>
-<div class="line">        <span class="keywordtype">double</span> cslPlaneSpacing= dir.planeSpacing();</div>
-<div class="line">        <span class="keywordtype">double</span> error= abs(stepHeightA-stepHeightB - b.<a id="a15" name="a15"></a><a class="code hl_function" href="classgb_l_a_b_1_1_lattice_vector.html#a00c55161492acd2c7268743a506467a2">cartesian</a>().dot(gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a>.cartesian().normalized()));</div>
-<div class="line">        error= std::remainder(error,cslPlaneSpacing);</div>
+<div class="line">    <a id="_a9" name="_a9"></a><a class="code hl_class" href="classo_i_l_a_b_1_1_lattice_vector.html">LatticeVector&lt;2&gt;</a> b(bc.<a id="a10" name="a10"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_bi_crystal.html#ad3f2d5ec2f55bf1bc5172318ceffae61">dscl</a>);</div>
+<div class="line">    b &lt;&lt; 1, 1;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Step height A: &quot;</span>;</div>
+<div class="line">    <span class="keywordtype">double</span> stepHeightA = gb.<a id="a11" name="a11"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_gb.html#aefeb3d764cd8884d37796954fe032436">stepHeightA</a>(b);</div>
+<div class="line">    std::cout &lt;&lt; stepHeightA &lt;&lt; std::endl;</div>
+<div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;Step height B: &quot;</span>;</div>
+<div class="line">    <span class="keywordtype">double</span> stepHeightB = gb.<a id="a12" name="a12"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_gb.html#a648ef2be06b74450bac99123615f01c8">stepHeightB</a>(b);</div>
+<div class="line">    std::cout &lt;&lt; stepHeightB &lt;&lt; std::endl;</div>
+<div class="line">    <span class="keyword">auto</span> dir =</div>
+<div class="line">        gb.<a id="a13" name="a13"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#ad3abfc0694ee6f73bd98d40f42fca5bf">bc</a>.getReciprocalLatticeDirectionInC(n.<a id="a14" name="a14"></a><a class="code hl_function" href="structo_i_l_a_b_1_1_reciprocal_lattice_direction.html#a837672c88b8ddd82d5ee7af9a714f6cd">reciprocalLatticeVector</a>());</div>
+<div class="line">    <span class="keywordtype">double</span> cslPlaneSpacing = dir.planeSpacing();</div>
+<div class="line">    <span class="keywordtype">double</span> error = abs(stepHeightA - stepHeightB -</div>
+<div class="line">                       b.<a id="a15" name="a15"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_lattice_vector.html#afb135a2fdf0ff5ca832f35e2eb64d21a">cartesian</a>().dot(gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a>.cartesian().normalized()));</div>
+<div class="line">    error = std::remainder(error, cslPlaneSpacing);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keywordflow">if</span>((gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a>.cartesian().normalized()+gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda">nB</a>.cartesian().normalized()).norm() &gt; 1e-5)</div>
-<div class="line">            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Cartesian coordinates of normalized nA and nB are not anti-parallel&quot;</span>);</div>
-<div class="line">        <span class="keywordflow">if</span>(error &gt; 1e-6)</div>
-<div class="line">            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Error in step height calculation&quot;</span>);</div>
-<div class="line">        <span class="keyword">auto</span> nC= gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a6df86b66784710a12868156dc6a18ed7">bc</a>.getReciprocalLatticeDirectionInC(gb.<a class="code hl_variable" href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">nA</a>.reciprocalLatticeVector());</div>
-<div class="line">        <span class="keyword">auto</span> planeParallelBasis= bc.<a id="a16" name="a16"></a><a class="code hl_variable" href="classgb_l_a_b_1_1_bi_crystal.html#a96455b970ce7392af39fd2d309b4dbbf">csl</a>.planeParallelLatticeBasis(nC,<span class="keyword">true</span>);</div>
-<div class="line">        std::vector&lt;LatticeVector&lt;2&gt;&gt; boxVectors;</div>
-<div class="line">        boxVectors.push_back(planeParallelBasis[0].latticeVector());</div>
-<div class="line">        boxVectors.push_back(planeParallelBasis[1].latticeVector());</div>
-<div class="line">        gb.<a id="a17" name="a17"></a><a class="code hl_function" href="classgb_l_a_b_1_1_gb.html#a95acef4301b175db6b26e859e91840ac">box</a>(boxVectors,0.9,1,<span class="stringliteral">&quot;gb.txt&quot;</span>, <span class="keyword">true</span>);</div>
+<div class="line">    <span class="keywordflow">if</span> ((gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a>.cartesian().normalized() + gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034">nB</a>.cartesian().normalized())</div>
+<div class="line">            .norm() &gt; 1e-5)</div>
+<div class="line">      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Cartesian coordinates of normalized nA and nB &quot;</span></div>
+<div class="line">                               <span class="stringliteral">&quot;are not anti-parallel&quot;</span>);</div>
+<div class="line">    <span class="keywordflow">if</span> (error &gt; 1e-6)</div>
+<div class="line">      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Error in step height calculation&quot;</span>);</div>
+<div class="line">    <span class="keyword">auto</span> nC =</div>
+<div class="line">        gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#ad3abfc0694ee6f73bd98d40f42fca5bf">bc</a>.getReciprocalLatticeDirectionInC(gb.<a class="code hl_variable" href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">nA</a>.reciprocalLatticeVector());</div>
+<div class="line">    <span class="keyword">auto</span> planeParallelBasis = bc.<a id="a16" name="a16"></a><a class="code hl_variable" href="classo_i_l_a_b_1_1_bi_crystal.html#ac271622388b204c3cc1abfb6fad965f4">csl</a>.planeParallelLatticeBasis(nC, <span class="keyword">true</span>);</div>
+<div class="line">    std::vector&lt;LatticeVector&lt;2&gt;&gt; boxVectors;</div>
+<div class="line">    boxVectors.push_back(planeParallelBasis[0].latticeVector());</div>
+<div class="line">    boxVectors.push_back(planeParallelBasis[1].latticeVector());</div>
+<div class="line">    gb.<a id="a17" name="a17"></a><a class="code hl_function" href="classo_i_l_a_b_1_1_gb.html#ae7481b1779317ed8ee0959c6301aec82">box</a>(boxVectors, 0.9, 1, <span class="stringliteral">&quot;gb.txt&quot;</span>, <span class="keyword">true</span>);</div>
 <div class="line"> </div>
-<div class="line">    }</div>
-<div class="line">    <span class="keywordflow">catch</span>(std::runtime_error&amp; e)</div>
-<div class="line">    {</div>
-<div class="line">        std::cout &lt;&lt; e.what() &lt;&lt; std::endl;</div>
-<div class="line">        <span class="keywordflow">return</span> -1;</div>
-<div class="line">    }</div>
-<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">  } <span class="keywordflow">catch</span> (std::runtime_error &amp;e) {</div>
+<div class="line">    std::cout &lt;&lt; e.what() &lt;&lt; std::endl;</div>
+<div class="line">    <span class="keywordflow">return</span> -1;</div>
+<div class="line">  }</div>
+<div class="line">  <span class="keywordflow">return</span> 0;</div>
 <div class="line">}</div>
-<div class="ttc" id="a_lattice_module_8h_html"><div class="ttname"><a href="_lattice_module_8h.html">LatticeModule.h</a></div></div>
-<div class="ttc" id="a_text_file_parser_8h_html"><div class="ttname"><a href="_text_file_parser_8h.html">TextFileParser.h</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html">gbLAB::BiCrystal</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00027">BiCrystal.h:29</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a255f64c2f26fb61cd60cb6e586d77180"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a255f64c2f26fb61cd60cb6e586d77180">gbLAB::BiCrystal::dscl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; dscl</div><div class="ttdoc">DCSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00108">BiCrystal.h:108</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_bi_crystal_html_a96455b970ce7392af39fd2d309b4dbbf"><div class="ttname"><a href="classgb_l_a_b_1_1_bi_crystal.html#a96455b970ce7392af39fd2d309b4dbbf">gbLAB::BiCrystal::csl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; csl</div><div class="ttdoc">CSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00104">BiCrystal.h:104</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html">gbLAB::Gb</a></div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00015">Gb.h:16</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a26aa5b3aeaf23210985e90acafb79e1e"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a26aa5b3aeaf23210985e90acafb79e1e">gbLAB::Gb::nA</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nA</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00033">Gb.h:33</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a6c4082f445adce8f5f06cfa17eb68185"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a6c4082f445adce8f5f06cfa17eb68185">gbLAB::Gb::stepHeightA</a></div><div class="ttdeci">double stepHeightA(const LatticeVector&lt; dim &gt; &amp;d) const</div><div class="ttdoc">Computes the step height of a disconnection formed by displacing lattice  by a Burgers vector .</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00030">Gb.cpp:30</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a6df86b66784710a12868156dc6a18ed7"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a6df86b66784710a12868156dc6a18ed7">gbLAB::Gb::bc</a></div><div class="ttdeci">const BiCrystal&lt; dim &gt; &amp; bc</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00029">Gb.h:29</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_a95acef4301b175db6b26e859e91840ac"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#a95acef4301b175db6b26e859e91840ac">gbLAB::Gb::box</a></div><div class="ttdeci">std::enable_if&lt; dm==2||dm==3, std::vector&lt; LatticeVector&lt; dim &gt; &gt; &gt;::type box(std::vector&lt; LatticeVector&lt; dim &gt; &gt; &amp;boxVectors, const double &amp;orthogonality, const int &amp;dsclFactor, std::string filename=&quot;&quot;, bool orient=false) const</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00058">Gb.cpp:58</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_ae08eb3d0273dc62df5454c86b16d1dda"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#ae08eb3d0273dc62df5454c86b16d1dda">gbLAB::Gb::nB</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nB</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00037">Gb.h:37</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_gb_html_aecde6227ffba1ec751312f864c02a4a9"><div class="ttname"><a href="classgb_l_a_b_1_1_gb.html#aecde6227ffba1ec751312f864c02a4a9">gbLAB::Gb::stepHeightB</a></div><div class="ttdeci">double stepHeightB(const LatticeVector&lt; dim &gt; &amp;d) const</div><div class="ttdoc">Computes the step height of a disconnection formed by displacing lattice  by a Burgers vector .</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00048">Gb.cpp:48</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_html"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice.html">gbLAB::Lattice</a></div><div class="ttdoc">Lattice class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8h_source.html#l00033">Lattice.h:34</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_vector_html"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice_vector.html">gbLAB::LatticeVector</a></div><div class="ttdoc">LatticeVector class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8h_source.html#l00018">LatticeVector.h:19</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_lattice_vector_html_a00c55161492acd2c7268743a506467a2"><div class="ttname"><a href="classgb_l_a_b_1_1_lattice_vector.html#a00c55161492acd2c7268743a506467a2">gbLAB::LatticeVector::cartesian</a></div><div class="ttdeci">VectorDimD cartesian() const</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8cpp_source.html#l00134">LatticeVector.cpp:134</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_reciprocal_lattice_vector_html"><div class="ttname"><a href="classgb_l_a_b_1_1_reciprocal_lattice_vector.html">gbLAB::ReciprocalLatticeVector</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8h_source.html#l00014">ReciprocalLatticeVector.h:15</a></div></div>
-<div class="ttc" id="aclassgb_l_a_b_1_1_text_file_parser_html"><div class="ttname"><a href="classgb_l_a_b_1_1_text_file_parser.html">gbLAB::TextFileParser</a></div><div class="ttdef"><b>Definition</b> <a href="_text_file_parser_8h_source.html#l00125">TextFileParser.h:126</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html">oILAB::BiCrystal</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00025">BiCrystal.h:27</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_ac271622388b204c3cc1abfb6fad965f4"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#ac271622388b204c3cc1abfb6fad965f4">oILAB::BiCrystal::csl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; csl</div><div class="ttdoc">CSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00102">BiCrystal.h:102</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_bi_crystal_html_ad3f2d5ec2f55bf1bc5172318ceffae61"><div class="ttname"><a href="classo_i_l_a_b_1_1_bi_crystal.html#ad3f2d5ec2f55bf1bc5172318ceffae61">oILAB::BiCrystal::dscl</a></div><div class="ttdeci">const Lattice&lt; dim &gt; dscl</div><div class="ttdoc">DCSL lattice .</div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8h_source.html#l00106">BiCrystal.h:106</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html">oILAB::Gb</a></div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00013">Gb.h:13</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_a36d198e8d460734d17a482dc9cd59034"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#a36d198e8d460734d17a482dc9cd59034">oILAB::Gb::nB</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nB</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00036">Gb.h:36</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_a648ef2be06b74450bac99123615f01c8"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#a648ef2be06b74450bac99123615f01c8">oILAB::Gb::stepHeightB</a></div><div class="ttdeci">double stepHeightB(const LatticeVector&lt; dim &gt; &amp;d) const</div><div class="ttdoc">Computes the step height of a disconnection formed by displacing lattice  by a Burgers vector .</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00056">Gb.cpp:56</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_a8998c60bb73d05c04369f180e6882669"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#a8998c60bb73d05c04369f180e6882669">oILAB::Gb::nA</a></div><div class="ttdeci">const ReciprocalLatticeDirection&lt; dim &gt; nA</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00032">Gb.h:32</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_ad3abfc0694ee6f73bd98d40f42fca5bf"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#ad3abfc0694ee6f73bd98d40f42fca5bf">oILAB::Gb::bc</a></div><div class="ttdeci">const BiCrystal&lt; dim &gt; &amp; bc</div><div class="ttdef"><b>Definition</b> <a href="_gb_8h_source.html#l00028">Gb.h:28</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_ae7481b1779317ed8ee0959c6301aec82"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#ae7481b1779317ed8ee0959c6301aec82">oILAB::Gb::box</a></div><div class="ttdeci">std::enable_if&lt; dm==2||dm==3, std::vector&lt; LatticeVector&lt; dim &gt; &gt; &gt;::type box(std::vector&lt; LatticeVector&lt; dim &gt; &gt; &amp;boxVectors, const double &amp;orthogonality, const int &amp;dsclFactor, std::string filename=&quot;&quot;, bool orient=false) const</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00066">Gb.cpp:66</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_gb_html_aefeb3d764cd8884d37796954fe032436"><div class="ttname"><a href="classo_i_l_a_b_1_1_gb.html#aefeb3d764cd8884d37796954fe032436">oILAB::Gb::stepHeightA</a></div><div class="ttdeci">double stepHeightA(const LatticeVector&lt; dim &gt; &amp;d) const</div><div class="ttdoc">Computes the step height of a disconnection formed by displacing lattice  by a Burgers vector .</div><div class="ttdef"><b>Definition</b> <a href="_gb_8cpp_source.html#l00038">Gb.cpp:38</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice.html">oILAB::Lattice</a></div><div class="ttdoc">Lattice class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_8h_source.html#l00031">Lattice.h:31</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_vector_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice_vector.html">oILAB::LatticeVector</a></div><div class="ttdoc">LatticeVector class.</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8h_source.html#l00017">LatticeVector.h:18</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_lattice_vector_html_afb135a2fdf0ff5ca832f35e2eb64d21a"><div class="ttname"><a href="classo_i_l_a_b_1_1_lattice_vector.html#afb135a2fdf0ff5ca832f35e2eb64d21a">oILAB::LatticeVector::cartesian</a></div><div class="ttdeci">VectorDimD cartesian() const</div><div class="ttdef"><b>Definition</b> <a href="_lattice_vector_8cpp_source.html#l00132">LatticeVector.cpp:132</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_reciprocal_lattice_vector_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_reciprocal_lattice_vector.html">oILAB::ReciprocalLatticeVector</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_vector_8h_source.html#l00013">ReciprocalLatticeVector.h:14</a></div></div>
+<div class="ttc" id="aclasso_i_l_a_b_1_1_text_file_parser_html"><div class="ttname"><a href="classo_i_l_a_b_1_1_text_file_parser.html">oILAB::TextFileParser</a></div><div class="ttdef"><b>Definition</b> <a href="_text_file_parser_8h_source.html#l00124">TextFileParser.h:125</a></div></div>
 <div class="ttc" id="amain_8cpp_html_a3c04138a5bfe5d72780bb7e82a18e627"><div class="ttname"><a href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a></div><div class="ttdeci">int main(int argc, char **argv)</div><div class="ttdef"><b>Definition</b> <a href="main_8cpp_source.html#l00012">main.cpp:12</a></div></div>
-<div class="ttc" id="anamespacegb_l_a_b_html"><div class="ttname"><a href="namespacegb_l_a_b.html">gbLAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:14</a></div></div>
-<div class="ttc" id="astructgb_l_a_b_1_1_reciprocal_lattice_direction_html"><div class="ttname"><a href="structgb_l_a_b_1_1_reciprocal_lattice_direction.html">gbLAB::ReciprocalLatticeDirection</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_direction_8h_source.html#l00015">ReciprocalLatticeDirection.h:17</a></div></div>
-<div class="ttc" id="astructgb_l_a_b_1_1_reciprocal_lattice_direction_html_ad83aa3e6e80b52c56b4d36f11784bc8d"><div class="ttname"><a href="structgb_l_a_b_1_1_reciprocal_lattice_direction.html#ad83aa3e6e80b52c56b4d36f11784bc8d">gbLAB::ReciprocalLatticeDirection::reciprocalLatticeVector</a></div><div class="ttdeci">const ReciprocalLatticeVector&lt; dim &gt; &amp; reciprocalLatticeVector() const</div><div class="ttdoc">Returns a constant reference to the base class (ReciprocalLatticeVector)</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_direction_8h_source.html#l00047">ReciprocalLatticeDirection.h:47</a></div></div>
+<div class="ttc" id="anamespaceo_i_l_a_b_html"><div class="ttname"><a href="namespaceo_i_l_a_b.html">oILAB</a></div><div class="ttdef"><b>Definition</b> <a href="_bi_crystal_8cpp_source.html#l00013">BiCrystal.cpp:13</a></div></div>
+<div class="ttc" id="astructo_i_l_a_b_1_1_reciprocal_lattice_direction_html"><div class="ttname"><a href="structo_i_l_a_b_1_1_reciprocal_lattice_direction.html">oILAB::ReciprocalLatticeDirection</a></div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_direction_8h_source.html#l00014">ReciprocalLatticeDirection.h:15</a></div></div>
+<div class="ttc" id="astructo_i_l_a_b_1_1_reciprocal_lattice_direction_html_a837672c88b8ddd82d5ee7af9a714f6cd"><div class="ttname"><a href="structo_i_l_a_b_1_1_reciprocal_lattice_direction.html#a837672c88b8ddd82d5ee7af9a714f6cd">oILAB::ReciprocalLatticeDirection::reciprocalLatticeVector</a></div><div class="ttdeci">const ReciprocalLatticeVector&lt; dim &gt; &amp; reciprocalLatticeVector() const</div><div class="ttdoc">Returns a constant reference to the base class (ReciprocalLatticeVector)</div><div class="ttdef"><b>Definition</b> <a href="_reciprocal_lattice_direction_8h_source.html#l00045">ReciprocalLatticeDirection.h:45</a></div></div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Wed Mar 25 2026 21:25:24 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
+    <li class="footer">Generated on Sat Mar 28 2026 00:15:04 for oILAB by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.8 </li>
   </ul>
 </div>
 </body>

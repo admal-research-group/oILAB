@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['readcost_0',['ReadCost',['../struct_eigen_1_1_num_traits_3_01gb_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4.html#ad9529a779465e2a12761a129da49ad83aa005391f61cc45dc641d28811e0f37c5',1,'Eigen::NumTraits&lt; gbLAB::Rational&lt; IntScalarType &gt; &gt;']]],
-  ['requireinitialization_1',['RequireInitialization',['../struct_eigen_1_1_num_traits_3_01gb_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4.html#ad9529a779465e2a12761a129da49ad83aee27ba5f6a4414e860b1cf58d2ed5884',1,'Eigen::NumTraits&lt; gbLAB::Rational&lt; IntScalarType &gt; &gt;']]]
+  ['readcost_0',['ReadCost',['../struct_eigen_1_1_num_traits_3_01o_i_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4.html#ac8eee7edd8b4c9b2fd23495a2a518338a92c324189efd848f79e021d5dddb3812',1,'Eigen::NumTraits&lt; oILAB::Rational&lt; IntScalarType &gt; &gt;']]],
+  ['requireinitialization_1',['RequireInitialization',['../struct_eigen_1_1_num_traits_3_01o_i_l_a_b_1_1_rational_3_01_int_scalar_type_01_4_01_4.html#ac8eee7edd8b4c9b2fd23495a2a518338ae12d8919c3ae5aa8ae834a8ce9a8ed18',1,'Eigen::NumTraits&lt; oILAB::Rational&lt; IntScalarType &gt; &gt;']]]
 ];

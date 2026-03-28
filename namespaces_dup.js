@@ -64,7 +64,6 @@ var namespaces_dup =
       [ "theta", "namespaceexample__inverse__design.html#a481408878ab1177db25baf4463d0505f", null ],
       [ "z_padding", "namespaceexample__inverse__design.html#afa18f8cab4137af90de2f21ce04c4959", null ]
     ] ],
-    [ "gbLAB", "namespacegb_l_a_b.html", "namespacegb_l_a_b" ],
     [ "inverse_design_core", "namespaceinverse__design__core.html", "namespaceinverse__design__core" ],
     [ "lammps_writer", "namespacelammps__writer.html", [
       [ "compute_triclinic_box", "namespacelammps__writer.html#a2327eb75a6f2ed25a74763011e2a8732", null ],
@@ -72,5 +71,6 @@ var namespaces_dup =
       [ "write_lammps_data", "namespacelammps__writer.html#aee4bfcb848856392c9cd650d7416d319", null ]
     ] ],
     [ "layers", "namespacelayers.html", "namespacelayers" ],
+    [ "oILAB", "namespaceo_i_l_a_b.html", "namespaceo_i_l_a_b" ],
     [ "pyoilab", "namespacepyoilab.html", "namespacepyoilab" ]
 ];

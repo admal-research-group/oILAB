@@ -1,21 +1,21 @@
 var searchData=
 [
   ['r_0',['R',['../namespaceexample__inverse__design.html#aa80a16a353c37a26fe964724a57cae87',1,'example_inverse_design']]],
-  ['rat_1',['rat',['../structgb_l_a_b_1_1_rational_reciprocal_lattice_direction.html#a8fc9971dd1cced169bde6c264a1be9a1',1,'gbLAB::RationalReciprocalLatticeDirection::rat'],['../structgb_l_a_b_1_1_rational_lattice_direction.html#aeb3796fa6f73b69d06e5055c601eec5a',1,'gbLAB::RationalLatticeDirection::rat']]],
-  ['reciprocalbasis_2',['reciprocalBasis',['../classgb_l_a_b_1_1_lattice.html#a4b8c39ef6d7a9ed663ae7aa809282024',1,'gbLAB::Lattice']]],
-  ['redboldcolor_3',['redBoldColor',['../namespacegb_l_a_b.html#a017cf3d3dc6b141edced6d05294933d5',1,'gbLAB']]],
-  ['redcolor_4',['redColor',['../namespacegb_l_a_b.html#ab5c731ec51ae7c7feb94372f97074864',1,'gbLAB']]],
-  ['refstate_5',['refState',['../classgb_l_a_b_1_1_reference_state.html#a6a1a390abf0783b271fae8f5e93a84fc',1,'gbLAB::ReferenceState']]],
-  ['renderer_6',['renderer',['../structgb_l_a_b_1_1_bicrystal_actor.html#aceb68e5f931bb975d1d330a757b7cd22',1,'gbLAB::BicrystalActor::renderer'],['../structgb_l_a_b_1_1oi_viewer_v_t_kwidget.html#ada4343525e6d09c2e29c7c8d149f4444',1,'gbLAB::oiViewerVTKwidget::renderer']]],
-  ['renderwindow_7',['renderwindow',['../structgb_l_a_b_1_1_bicrystal_actor.html#ab48122d6f32dc60acc76710f5b2e6dbf',1,'gbLAB::BicrystalActor::renderWindow'],['../structgb_l_a_b_1_1oi_viewer_v_t_kwidget.html#a152a824737ca761b6d7025510db02481',1,'gbLAB::oiViewerVTKwidget::renderWindow']]],
+  ['rat_1',['rat',['../structo_i_l_a_b_1_1_rational_reciprocal_lattice_direction.html#a606c1634f796751f7d5e80dc153ab71d',1,'oILAB::RationalReciprocalLatticeDirection::rat'],['../structo_i_l_a_b_1_1_rational_lattice_direction.html#a336345929abcddd43c4eb1453c91a1d9',1,'oILAB::RationalLatticeDirection::rat']]],
+  ['reciprocalbasis_2',['reciprocalBasis',['../classo_i_l_a_b_1_1_lattice.html#a8c32c242865b616915bf4ac1b952903f',1,'oILAB::Lattice']]],
+  ['redboldcolor_3',['redBoldColor',['../namespaceo_i_l_a_b.html#a22ab27a793f19b8f28d9ed7869b9cc6b',1,'oILAB']]],
+  ['redcolor_4',['redColor',['../namespaceo_i_l_a_b.html#a49123db60aec583a7e941fd29785b0a0',1,'oILAB']]],
+  ['refstate_5',['refState',['../classo_i_l_a_b_1_1_reference_state.html#a121c4d7f14d65f912c9149ef5a0e6acf',1,'oILAB::ReferenceState']]],
+  ['renderer_6',['renderer',['../structo_i_l_a_b_1_1_bicrystal_actor.html#a60f83d725c77f7f3e723dfefe9747055',1,'oILAB::BicrystalActor::renderer'],['../structo_i_l_a_b_1_1oi_viewer_v_t_kwidget.html#a59a290931ba6137c6d1711d7ecc7ff72',1,'oILAB::oiViewerVTKwidget::renderer']]],
+  ['renderwindow_7',['renderwindow',['../structo_i_l_a_b_1_1_bicrystal_actor.html#a3847aabab02bd9aaafc2031545d7afb9',1,'oILAB::BicrystalActor::renderWindow'],['../structo_i_l_a_b_1_1oi_viewer_v_t_kwidget.html#aeda2df73c78680f9349345077fb3dcf8',1,'oILAB::oiViewerVTKwidget::renderWindow']]],
   ['result_8',['result',['../namespaceexample__inverse__design.html#a94952d1e3d4d863e3a70b855a40b7ab7',1,'example_inverse_design']]],
-  ['returnpair_9',['returnPair',['../classgb_l_a_b_1_1_rational_matrix.html#a94e8ea5d5ab6c0396f0d6d038e54672e',1,'gbLAB::RationalMatrix']]],
+  ['returnpair_9',['returnPair',['../classo_i_l_a_b_1_1_rational_matrix.html#af023d9358252f5547c0c67f1b3dd76ea',1,'oILAB::RationalMatrix']]],
   ['rld_10',['rld',['../classpyoilab_1_1_py_reciprocal_lattice_direction.html#af2dec74abc238c8711068a8ba5568353',1,'pyoilab::PyReciprocalLatticeDirection']]],
   ['rlv_11',['rlv',['../classpyoilab_1_1_py_reciprocal_lattice_vector.html#a1c7e34aed7d9e10fd0c476be5d6629c2',1,'pyoilab::PyReciprocalLatticeVector']]],
   ['rlv1_12',['rlv1',['../namespaceexample.html#aad3ba0d4999371284358f7a25de81109',1,'example']]],
   ['rlv2_13',['rlv2',['../namespaceexample.html#a00a4a75ea415f2f22e3bc528ea8952b5',1,'example']]],
   ['rot_14',['rot',['../namespaceexample.html#a7dbb57d9294b527410f7b8d2837c1e1c',1,'example']]],
   ['rotations_15',['rotations',['../namespaceexample.html#a1207d916053b8d4a905d0b1dd41e3329',1,'example']]],
-  ['roundtol_16',['roundtol',['../structgb_l_a_b_1_1_lattice_core.html#ab9c87993adfd582969903dea2be667b3',1,'gbLAB::LatticeCore::roundTol'],['../classgb_l_a_b_1_1_lattice.html#adb98d4d24a5e402cd55db1cb5aee11df',1,'gbLAB::Lattice::roundTol']]],
-  ['rs_17',['rS',['../classgb_l_a_b_1_1_meso_state_ensemble.html#a513b204530010532a29b3f4ac7dc4fb3',1,'gbLAB::MesoStateEnsemble']]]
+  ['roundtol_16',['roundtol',['../structo_i_l_a_b_1_1_lattice_core.html#a4a3298d0fb7392f1877034ce7321a492',1,'oILAB::LatticeCore::roundTol'],['../classo_i_l_a_b_1_1_lattice.html#afb75edc6b7122070ae57a948461bd56c',1,'oILAB::Lattice::roundTol']]],
+  ['rs_17',['rS',['../classo_i_l_a_b_1_1_meso_state_ensemble.html#aaeea501cb19666a341d91bb66d9d29cb',1,'oILAB::MesoStateEnsemble']]]
 ];
