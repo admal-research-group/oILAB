@@ -60,3 +60,5 @@ translationsNonFlat.txt
 
 # Local IDE / MCP configuration
 .mcp.json
+sites.txt
+sites.xyz
