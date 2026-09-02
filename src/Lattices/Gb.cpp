@@ -4,6 +4,7 @@
 #ifndef OILAB_GB_CPP
 #define OILAB_GB_CPP
 
+#include <cassert>
 #include "../../include/Lattices/Gb.h"
 
 namespace oILAB {

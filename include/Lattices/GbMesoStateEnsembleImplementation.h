@@ -5,6 +5,7 @@
 #ifndef OILAB_GBMESOSTATEENSEMBLEIMPLEMENTATION_H
 #define OILAB_GBMESOSTATEENSEMBLEIMPLEMENTATION_H
 
+#include <cassert>
 #include <deque>
 #include "LatticeVector.h"
 #include "../Utilities/randomInteger.h"
@@ -15,12 +16,20 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
                                               const ReciprocalLatticeVector<dim>& axis,
                                               std::vector<LatticeVector<dim>>& ensembleCslVectors,
                                               const double& tMax,
-                                              const double& sPerpMax):
+                                              const double& sPerpMax,
+                                              const GbShiftSearch& search,
+                                              const double& tPerpMax,
+                                              const bool& oneTranslationPerSite,
+                                              const std::string& filename):
 /*init*/ GbShifts<dim>(gb, axis,
                        std::vector<LatticeVector<dim>>(ensembleCslVectors.begin() + 1,
                                                        ensembleCslVectors.end()),
                        tMax,
-                       sPerpMax),
+                       sPerpMax,
+                       search,
+                       tPerpMax,
+                       oneTranslationPerSite,
+                       filename),
 /*init*/ ensembleCslVectors(ensembleCslVectors){
         std::cout << "--------------------GBMesoStateEnsemble class construction "
                      "---------------------------"

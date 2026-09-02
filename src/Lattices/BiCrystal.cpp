@@ -7,6 +7,7 @@
 #ifndef gbLAB_BiCrystal_cpp_
 #define gbLAB_BiCrystal_cpp_
 
+#include <cassert>
 #include "../../include/Lattices/LatticeModule.h"
 #include <numbers>
 

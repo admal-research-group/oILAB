@@ -5,6 +5,7 @@
 #ifndef OILAB_ROTATION_H
 #define OILAB_ROTATION_H
 
+#include <cassert>
 #include<Eigen/Eigen>
 #include<numbers>
 #include<cfloat>

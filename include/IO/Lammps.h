@@ -134,12 +134,19 @@ void write_lammps_datafile(const std::string &filename,
 }
 
 /*-----------------------*/
+/*! Writes the LAMMPS input script that evaluates a configuration.
+ *
+ *  @param minimize when true a conjugate-gradient relaxation is run before the energy is read
+ *         out, so the reported energy is that of the relaxed configuration.  The default keeps
+ *         the original behaviour -- a static evaluation of the configuration as written.
+ */
 void write_lammps_input_script(const std::string &filename,
                                const std::string &infile,
                                const std::string &outfile,
                                double gb_thickness_parameter,
                                const std::string &potential_file_path,
-                               const std::string &output_dump_file) {
+                               const std::string &output_dump_file,
+                               bool minimize = false) {
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error opening file for writing lammps input script: " << filename << std::endl;
@@ -185,6 +192,12 @@ void write_lammps_input_script(const std::string &filename,
     file << "timestep        0.001\n";
     file << "thermo_style custom step temp ke pe etotal press pxx pyy pzz pxy pxz pyz ly lx lz xy xz yz c_pe v_atomsGB v_peBULK v_atomsBULK\n";
     file << "dump                    OUT0 all custom 10 " << output_dump_file << " id type x y z fx fy fz c_3 c_1 vx vy vz c_4[1] c_4[2] c_4[3] c_4[4] c_4[5] c_4[6]\n";
+    if (minimize) {
+        // The groups are fixed at the moment they are defined, so relaxing here does not change
+        // which atoms the GB and BULK sums run over -- only where those atoms sit.
+        file << "min_style       cg\n";
+        file << "minimize        1e-12 1e-12 100000 100000\n";
+    }
     file << "run                     0\n";
     file << "variable        coh equal (${peBULK}/${atomsBULK})\n";
     file << "variable        GBene equal (${peGB}-${coh}*${atomsGB})\n";
@@ -241,9 +254,14 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
 }
 
 
+/*! @param minimize when true the configuration is relaxed in LAMMPS before its energy is read,
+ *         so the returned energy is the minimized one.  False (the default) evaluates the
+ *         configuration as it stands.
+ */
 std::pair<double, double> energy(const std::string& lammpsLocation,
                                  const std::string& oilabConfigFile,
-                                 const std::string& potentialFile)
+                                 const std::string& potentialFile,
+                                 bool minimize = false)
 {
     // Write data
     std::string threadNumber= std::to_string(omp_get_thread_num());
@@ -295,7 +313,7 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
 
     // Write files
     write_lammps_datafile(lammpsDataFile, nbox, new_atoms, 2);
-    write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter, potentialFile, lammpsDumpFile);
+    write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter, potentialFile, lammpsDumpFile, minimize);
 
     // Run the LAMMPS script
     std::string command = lammpsLocation +" -in " + lammpsInputFile + " > /dev/null 2>&1";

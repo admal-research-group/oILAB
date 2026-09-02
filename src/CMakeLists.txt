@@ -12,7 +12,8 @@ add_library(oILAB SHARED    Lattices/BiCrystal.cpp
                             Lattices/RationalReciprocalLatticeDirection.cpp
                             Lattices/ReciprocalLatticeVector.cpp
                             Math/Farey.cpp
-                            Lattices/GbShifts.cpp)
+                            Lattices/GbShifts.cpp
+                            Lattices/GbFacet.cpp)
 
 
 # Conditionally apply the export property for MSVC on Windows
@@ -28,7 +29,8 @@ target_include_directories(oILAB
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(oILAB PUBLIC Eigen3::Eigen)
+# GbFacet.h is a public header that includes CGAL, so CGAL must be PUBLIC.
+target_link_libraries(oILAB PUBLIC Eigen3::Eigen CGAL::CGAL)
 
 # Install library
 install(TARGETS oILAB

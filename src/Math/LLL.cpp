@@ -7,6 +7,7 @@
 #ifndef gbLAB_LLL_cpp_
 #define gbLAB_LLL_cpp_
 
+#include <cassert>
 #include "../../include/Math/LLL.h"
 // http://www.arageli.org/download
 // https://www.mathworks.com/matlabcentral/fileexchange/49457-lattice-reduction-mimo?focused=3859922&tab=function

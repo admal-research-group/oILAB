@@ -7,6 +7,7 @@
 #ifndef gbLAB_LatticeCore_h_
 #define gbLAB_LatticeCore_h_
 
+#include <cassert>
 #include <iostream>
 #include <cfloat> // FLT_EPSILON
 #include <Eigen/Dense>

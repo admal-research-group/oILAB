@@ -5,6 +5,7 @@
 #ifndef OILAB_LANDAUWANGTPIMPLEMENTATION_H
 #define OILAB_LANDAUWANGTPIMPLEMENTATION_H
 
+#include <cassert>
 #include <iostream>
 #include <numeric>
 #include "../Lattices/GbMesoState.h"

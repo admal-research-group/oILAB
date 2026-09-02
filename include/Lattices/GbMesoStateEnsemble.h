@@ -32,11 +32,20 @@ public:
     */
     std::vector<LatticeVector<dim>> ensembleCslVectors;
 
+    /*! @param search \p GbShiftSearch::Flat (default) keeps the original enumeration; \p Full
+     *         also admits translations whose CSL shift leaves the boundary plane, which is what
+     *         makes non-flat mesostates reachable.  The remaining arguments are forwarded to
+     *         GbShifts and ignored unless \p search is \p Full.
+     */
     GbMesoStateEnsemble(const Gb<dim> &gb,
                       const ReciprocalLatticeVector<dim> &axis,
                       std::vector<LatticeVector<dim>> &ensembleCslVectors,
                       const double &tMax=1,
-                      const double& sPerpMax=1);
+                      const double& sPerpMax=1,
+                      const GbShiftSearch& search= GbShiftSearch::Flat,
+                      const double& tPerpMax= 1.0e300,
+                      const bool& oneTranslationPerSite= false,
+                      const std::string& filename= "translationsNonFlat.txt");
 
     /*!
     * \brief Constructs an ensemble of mesostates
