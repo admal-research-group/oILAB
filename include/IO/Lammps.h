@@ -147,7 +147,9 @@ void write_lammps_input_script(const std::string &filename,
                                const std::string &potential_file_path,
                                const std::string &output_dump_file,
                                bool minimize = false,
-                               const std::string &minimized_dump_file = "") {
+                               const std::string &minimized_dump_file = "",
+                               double tether_half_width = 0.0,
+                               double tether_stiffness = 1.0) {
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error opening file for writing lammps input script: " << filename << std::endl;
@@ -193,6 +195,34 @@ void write_lammps_input_script(const std::string &filename,
     file << "timestep        0.001\n";
     file << "thermo_style custom step temp ke pe etotal press pxx pyy pzz pxy pxz pyz ly lx lz xy xz yz c_pe v_atomsGB v_peBULK v_atomsBULK\n";
     file << "dump                    OUT0 all custom 10 " << output_dump_file << " id type x y z fx fy fz c_3 c_1 vx vy vz c_4[1] c_4[2] c_4[3] c_4[4] c_4[5] c_4[6]\n";
+    // The energy of the configuration as constructed, before anything is relaxed.  Captured
+    // with $(...) so the value is frozen rather than re-evaluated later, and taken before the
+    // tether is applied so it describes the state the enumeration produced.
+    file << "run                     0\n";
+    file << "variable        peGBunmin equal $(c_pe)\n";
+    file << "variable        peBULKunmin equal $(c_pebulk)\n";
+    file << "variable        atomsGBunmin equal $(count(GB))\n";
+    file << "variable        atomsBULKunmin equal $(count(BULK))\n";
+    file << "variable        GBeneUnmin equal (${peGBunmin}-(${peBULKunmin}/${atomsBULKunmin})"
+            "*${atomsGBunmin})\n";
+
+    if (tether_half_width > 0.0) {
+        // Restrain the atoms near the boundary to the positions the construction gave them, so
+        // that the relaxation cannot carry the mesostate away from the state it represents.
+        // spring/self remembers each atom's position at the moment the fix is defined, which is
+        // why it is defined here rather than earlier.  The boundary lies at the middle of the
+        // cell, since energy() centres the box on it.
+        file << "variable        xlotether equal (xlo+xhi)/2-" << std::setprecision(8)
+             << tether_half_width << "\n";
+        file << "variable        xhitether equal (xlo+xhi)/2+" << std::setprecision(8)
+             << tether_half_width << "\n";
+        file << "region          TETHERREG block ${xlotether} ${xhitether} INF INF INF INF"
+                " side in units box\n";
+        file << "group           TETHERGRP region TETHERREG\n";
+        file << "fix             tether TETHERGRP spring/self " << std::setprecision(8)
+             << tether_stiffness << "\n";
+    }
+
     if (minimize) {
         // The groups are fixed at the moment they are defined, so relaxing here does not change
         // which atoms the GB and BULK sums run over -- only where those atoms sit.
@@ -200,6 +230,13 @@ void write_lammps_input_script(const std::string &filename,
         file << "minimize        1e-12 1e-12 100000 100000\n";
     }
     file << "run                     0\n";
+    // How hard the tether had to work.  A large value says the mesostate is not a minimum of the
+    // potential on its own.  It is reported but kept out of GBene, which sums pe/atom and so
+    // carries no fix contribution -- a restraint is a constraint, not a physical term.
+    if (tether_half_width > 0.0)
+        file << "variable        springEnergy equal $(f_tether)\n";
+    else
+        file << "variable        springEnergy equal 0.0\n";
     // A single snapshot of the configuration as it now stands -- after the relaxation, if one
     // was asked for.  The dump above records the trajectory and is overwritten by every state
     // sharing this thread; this one is the state's own final structure, written where the caller
@@ -208,7 +245,7 @@ void write_lammps_input_script(const std::string &filename,
         file << "write_dump all custom " << minimized_dump_file << " id type x y z\n";
     file << "variable        coh equal (${peBULK}/${atomsBULK})\n";
     file << "variable        GBene equal (${peGB}-${coh}*${atomsGB})\n";
-    file << "print \"coh = ${coh} energy = ${peGB} numAtoms = ${atomsGB} GBene = ${GBene} area = ${area}\" file " << outfile << "\n";
+    file << "print \"coh = ${coh} energy = ${peGB} numAtoms = ${atomsGB} GBene = ${GBene} springE = ${springEnergy} GBeneU = ${GBeneUnmin} area = ${area}\" file " << outfile << "\n";
     file << "\n";
 }
 
@@ -226,6 +263,7 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
         std::stringstream ss(line);
         std::string field;
         double state_id, area, total_energy, gb_energy, gb_density;
+        double spring_energy= 0.0, unminimized_energy= 0.0;
 
         while (ss >> field)
         {
@@ -245,6 +283,14 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
                 ss >> field;
                 ss >> gb_density;
             }
+            else if (field == "springE") {
+                ss >> field;
+                ss >> spring_energy;
+            }
+            else if (field == "GBeneU") {
+                ss >> field;
+                ss >> unminimized_energy;
+            }
             else if (field == "area")
             {
                 ss >> field;
@@ -254,7 +300,8 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
         }
 
         //gb_density = gb_density / area;
-        data.push_back({state_id, area, gb_energy, gb_density});
+        data.push_back({state_id, area, gb_energy, gb_density,
+                        spring_energy, unminimized_energy});
     }
 
     return data;
@@ -266,12 +313,24 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
  *         configuration as it stands.
  *  @param minimizedDumpFile if non-empty, the configuration as LAMMPS leaves it -- relaxed, when
  *         \p minimize is set -- is written there as a single dump snapshot.
+ *  @param tetherHalfWidth when positive, atoms within this distance of the boundary plane are
+ *         restrained to their as-constructed positions by a harmonic spring, so the relaxation
+ *         cannot carry the mesostate away from the state it represents.  Zero relaxes freely.
+ *  @param tetherStiffness spring constant of that restraint, in eV/Angstrom^2.
+ *  @param springEnergy if non-null, receives the energy stored in the restraint -- how hard it
+ *         had to work.  Zero when no tether was applied.
+ *  @param unminimizedEnergy if non-null, receives the boundary energy of the configuration as
+ *         constructed, before any relaxation.
  */
 std::pair<double, double> energy(const std::string& lammpsLocation,
                                  const std::string& oilabConfigFile,
                                  const std::string& potentialFile,
                                  bool minimize = false,
-                                 const std::string& minimizedDumpFile = "")
+                                 const std::string& minimizedDumpFile = "",
+                                 double tetherHalfWidth = 0.0,
+                                 double tetherStiffness = 1.0,
+                                 double* springEnergy = nullptr,
+                                 double* unminimizedEnergy = nullptr)
 {
     // Write data
     std::string threadNumber= std::to_string(omp_get_thread_num());
@@ -324,7 +383,8 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
     // Write files
     write_lammps_datafile(lammpsDataFile, nbox, new_atoms, 2);
     write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter,
-                              potentialFile, lammpsDumpFile, minimize, minimizedDumpFile);
+                              potentialFile, lammpsDumpFile, minimize, minimizedDumpFile,
+                              tetherHalfWidth, tetherStiffness);
 
     // Run the LAMMPS script
     std::string command = lammpsLocation +" -in " + lammpsInputFile + " > /dev/null 2>&1";
@@ -333,6 +393,8 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
     // Read energy
     auto data_energy = read_python_outfile(outfile);
 
+    if (springEnergy)      *springEnergy=      data_energy[0].size()>4 ? data_energy[0][4] : 0.0;
+    if (unminimizedEnergy) *unminimizedEnergy= data_energy[0].size()>5 ? data_energy[0][5] : 0.0;
     return {data_energy[0][3], data_energy[0][2]};
 }
 

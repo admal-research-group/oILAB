@@ -267,7 +267,7 @@ int main()
     // only ceiling is the clash rule itself: no state can engage two pairs that share a lattice
     // site, so no state can be larger than the smaller of the two site counts.  Every state the
     // walk produces is clash-free, so this is a count of real states, not of candidates.
-    const int maxEngaged                  = 8;
+    const int maxEngaged                  = 4;
     // Refuse to start a run longer than this many states.  Each one is a mesostate construction
     // and, with energies on, a LAMMPS minimization.
     const long long maxStates             = 150000;
@@ -285,6 +285,13 @@ int main()
     // configurations, and lmpLocation to the serial LAMMPS executable on this machine.
     const bool computeEnergies            = true;
     const bool minimizeInLammps           = true;  // relax before reading the energy
+    // Constrained relaxation.  Atoms within tetherHalfWidth of the flat boundary are held to
+    // their as-constructed positions by a harmonic spring, so the relaxation cannot carry the
+    // mesostate away from the state the enumeration produced.  Zero relaxes freely, which is the
+    // unconstrained minimisation.  With a tether the run also reports the energy stored in the
+    // spring and the energy before any relaxation.
+    const double tetherHalfWidth          = 0.0;   // Angstrom; 0 = full minimisation
+    const double tetherStiffness          = 1.0;   // eV/Angstrom^2
     // Threads that build and evaluate mesostates in parallel, one LAMMPS process each.  Same
     // shape as tests/testGbMesoState, which runs with num_threads(1); raise it once a serial
     // pass has been seen to work.
@@ -316,6 +323,13 @@ int main()
     if (energiesRequested)
         std::cout << "energies = LAMMPS at " << lmpLocation << ", potential " << potentialName
                   << (minimizeInLammps ? ", minimized" : ", unrelaxed") << std::endl;
+    if (energiesRequested && minimizeInLammps)
+        std::cout << "relaxation = "
+                  << (tetherHalfWidth > 0.0
+                      ? "constrained (atoms within " + std::to_string(tetherHalfWidth)
+                        + " A of the boundary tethered, k = " + std::to_string(tetherStiffness)
+                        + " eV/A^2)"
+                      : "free (no tether)") << std::endl;
 
     // The original path expects `fin`; the enumerating path does not read it at all.
     std::vector<std::vector<int>> stateData;
@@ -624,7 +638,9 @@ int main()
                 std::filesystem::create_directories(directory);
             std::ofstream manifest(outputDirectory + "/states.txt");
             manifest << "# state_<index>_0.txt = undeformed, state_<index>_1.txt = deformed\n"
-                     << "# index  sites  relief  density  energy  engaged (t,s) pairs\n";
+                     << "# index  nodes  corrugation  density  energy"
+                     << (tetherHalfWidth > 0.0 ? "  spring  beforeRelaxation" : "")
+                     << "  engaged nodes\n";
 
             std::cout << "writing to " << std::filesystem::absolute(outputDirectory).string()
                       << std::endl;
@@ -633,27 +649,24 @@ int main()
             auto indexName= [](int i){
                 std::ostringstream o; o << std::setw(3) << std::setfill('0') << i; return o.str(); };
 
-            // One line describing engaged candidate i, whichever search produced it.  A Sites
-            // candidate is a coincidence point with the two grains displaced independently, so
-            // it is reported as the point and the two displacements; the other searches split
-            // one translation evenly, so they are reported as (t,s) as before.
-            const auto describe= [&ensemble,&searchMode,&nHat](const int i)
+            // One line describing an engaged node of a state that has been built.  The values
+            // are read off the mesostate rather than off the candidate list, because the two
+            // differ: the construction subtracts the common-mode translation, which moves the
+            // coincidence point and both displacements.  Reporting the candidate would describe
+            // something that was never built.  Reading the constructed pairs also makes the line
+            // identical for every search -- a (t,s) pair arrives here as its own u_A = +t/2,
+            // u_B = -t/2.
+            const auto describe= [&nHat](const auto& mesostate, const std::size_t position)
             {
+                const auto& [xA,uA]= mesostate.xuPairsOfFacetedSurfaces.first[position];
+                const auto& [xB,uB]= mesostate.xuPairsOfFacetedSurfaces.second[position];
+                const Eigen::Vector3d coincidence= xA+uA;
                 std::ostringstream o;
-                o << std::fixed << std::setprecision(4);
-                if (searchMode==GbShiftSearch::Sites) {
-                    const auto& node= ensemble.nodes[i];
-                    o << "s=(" << node.s(0) << "," << node.s(1) << "," << node.s(2) << ")"
-                      << "  s.n=" << node.s.dot(nHat)
-                      << "  |uA|=" << node.uA().norm() << "  |uB|=" << node.uB().norm()
-                      << "  |t|=" << node.t().norm();
-                }
-                else {
-                    const Eigen::Vector3d t= ensemble.tShiftPairs[i].first.cartesian();
-                    const Eigen::Vector3d sh= ensemble.tShiftPairs[i].second;
-                    o << "t=(" << t(0) << "," << t(1) << "," << t(2) << ")  s=("
-                      << sh(0) << "," << sh(1) << "," << sh(2) << ")  s.n=" << sh.dot(nHat);
-                }
+                o << std::fixed << std::setprecision(4)
+                  << "s=(" << coincidence(0) << "," << coincidence(1) << "," << coincidence(2)
+                  << ")  s.n=" << coincidence.dot(nHat)
+                  << "  |uA|=" << uA.norm() << "  |uB|=" << uB.norm()
+                  << "  |t|=" << (uA-uB).norm();
                 return o.str();
             };
 
@@ -703,10 +716,19 @@ int main()
                     // because t varies between sites.  In the general run it is reported, not
                     // enforced -- a non-zero value is the faceting itself.
                     const Eigen::MatrixXd deformed= mesostate.facetA.deformedVertices();
-                    double outOfPlane= 0.0;
-                    for (int r=0; r<deformed.rows(); ++r)
-                        outOfPlane= std::max(outOfPlane,
-                            std::abs(Eigen::Vector3d(deformed.row(r)).dot(nHat)));
+                    double lowest= 1.0e300, highest= -1.0e300;
+                    for (int r=0; r<deformed.rows(); ++r) {
+                        const double height= Eigen::Vector3d(deformed.row(r)).dot(nHat);
+                        lowest= std::min(lowest, height);
+                        highest= std::max(highest, height);
+                    }
+                    // How far the surface strays from the nominal plane, and how much of that is
+                    // shape rather than position.  A state engaging one node has a flat boundary
+                    // wherever it sits, so its corrugation is zero and only the offset is
+                    // non-zero; reporting the two together stops a displaced plane reading as a
+                    // faceted one.
+                    const double outOfPlane= std::max(std::abs(lowest), std::abs(highest));
+                    const double corrugation= highest-lowest;
 
                     // FLAT STGB (commented out): reject anything that is not planar, so that
                     // only the flat symmetric-tilt states survive.
@@ -740,7 +762,7 @@ int main()
                     // letting densityEnergy() write its own scratch copy doubled the cost of the
                     // whole run.  LAMMPS leaves its relaxed structure in dump.state_<index>_2,
                     // beside the undeformed and deformed configurations.
-                    double density= 0.0, gbEnergy= 0.0;
+                    double density= 0.0, gbEnergy= 0.0, springEnergy= 0.0, unminimized= 0.0;
                     if (energiesRequested) {
                         const std::string deformedFile= outputDirectory + "/state_"
                                                       + indexName(index) + "_1.txt";
@@ -748,10 +770,16 @@ int main()
                             outputDirectory + "/dump.state_" + indexName(index) + "_2").string();
                         std::tie(density,gbEnergy)=
                             mesostate.densityEnergy(lmpLocation, potentialName, minimizeInLammps,
-                                                    deformedFile, minimizedDump);
-                        if (out_file.is_open())
+                                                    deformedFile, minimizedDump,
+                                                    tetherHalfWidth, tetherStiffness,
+                                                    &springEnergy, &unminimized);
+                        if (out_file.is_open()) {
                             out_file << state << "  " << std::setprecision(8) << density
-                                     << "  " << gbEnergy << std::endl;
+                                     << "  " << gbEnergy;
+                            if (tetherHalfWidth > 0.0)
+                                out_file << "  " << springEnergy << "  " << unminimized;
+                            out_file << std::endl;
+                        }
                     }
 
                     // Build the whole screen block first and print it in one go: with several
@@ -764,23 +792,31 @@ int main()
                     report << "  [" << index << "] thread " << omp_get_thread_num() << ", "
                            << engaged.size() << " site(s) -> " << name
                            << "\n           GB signature: " << state;
-                    for (const int i : engaged)
-                        report << "\n           " << describe(i);
-                    report << "\n           facet relief |x.n| = " << std::fixed
-                           << std::setprecision(4) << outOfPlane << " A";
-                    if (energiesRequested)
+                    for (std::size_t e=0; e<engaged.size(); ++e)
+                        report << "\n           " << describe(mesostate,e);
+                    report << "\n           surface x.n in [" << std::fixed << std::setprecision(4)
+                           << lowest << ", " << highest << "] A,  corrugation = "
+                           << corrugation << " A";
+                    if (energiesRequested) {
                         report << "\n           density = " << std::fixed << std::setprecision(6)
                                << density << "   energy = " << gbEnergy
                                << (minimizeInLammps ? "  (minimized)" : "  (unrelaxed)");
+                        if (tetherHalfWidth > 0.0)
+                            report << "\n           spring = " << springEnergy
+                                   << "   before relaxation = " << unminimized;
+                    }
 
                     std::ostringstream manifestLine;
                     manifestLine << indexName(index) << "  " << engaged.size()
-                                 << "  " << std::fixed << std::setprecision(4) << outOfPlane;
-                    if (energiesRequested)
+                                 << "  " << std::fixed << std::setprecision(4) << corrugation;
+                    if (energiesRequested) {
                         manifestLine << "  " << std::fixed << std::setprecision(8)
                                      << density << "  " << gbEnergy;
-                    for (const int i : engaged)
-                        manifestLine << "   " << describe(i);
+                        if (tetherHalfWidth > 0.0)
+                            manifestLine << "  " << springEnergy << "  " << unminimized;
+                    }
+                    for (std::size_t e=0; e<engaged.size(); ++e)
+                        manifestLine << "   " << describe(mesostate,e);
 
 #pragma omp critical (report)
                     {

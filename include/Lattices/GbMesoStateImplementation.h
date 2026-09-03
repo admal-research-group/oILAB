@@ -219,7 +219,11 @@ GbMesoState<dim>::GbMesoState(
                                                              const std::string& potentialName,
                                                              const bool& minimize,
                                                              const std::string& configFile,
-                                                             const std::string& minimizedDumpFile) const
+                                                             const std::string& minimizedDumpFile,
+                                                             const double& tetherHalfWidth,
+                                                             const double& tetherStiffness,
+                                                             double* springEnergy,
+                                                             double* unminimizedEnergy) const
     {
         // Writing the configuration means evaluating the displacement field at every atom, which
         // dominates the cost of a mesostate -- so it is done here only when the caller has not
@@ -233,7 +237,11 @@ GbMesoState<dim>::GbMesoState(
                                                            deformedFile,
                                                            potentialName,
                                                            minimize,
-                                                           minimizedDumpFile);
+                                                           minimizedDumpFile,
+                                                           tetherHalfWidth,
+                                                           tetherStiffness,
+                                                           springEnergy,
+                                                           unminimizedEnergy);
 
 
         return {densityEnergyPair.first,densityEnergyPair.second};

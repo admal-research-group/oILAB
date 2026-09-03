@@ -158,6 +158,11 @@ public:
    * the path over rather than have it computed a second time. Empty (the default) writes a
    * scratch copy, which is the behaviour when the caller has none.
    * @param minimizedDumpFile if non-empty, where to write the configuration as LAMMPS leaves it.
+   * @param tetherHalfWidth when positive, atoms within this distance of the boundary are held to
+   * their as-constructed positions by a harmonic spring during the relaxation.
+   * @param tetherStiffness spring constant of that restraint, in eV/Angstrom^2.
+   * @param springEnergy if non-null, receives the energy stored in the restraint.
+   * @param unminimizedEnergy if non-null, receives the boundary energy before relaxation.
    * @return (density, energy) of the mesostate
    */
   // std::pair<double,double> densityEnergy() const;
@@ -166,7 +171,11 @@ public:
                 const std::string &potentialName,
                 const bool &minimize = false,
                 const std::string &configFile = "",
-                const std::string &minimizedDumpFile = "") const;
+                const std::string &minimizedDumpFile = "",
+                const double &tetherHalfWidth = 0.0,
+                const double &tetherStiffness = 1.0,
+                double *springEnergy = nullptr,
+                double *unminimizedEnergy = nullptr) const;
 
   /*! This function outputs/prints a grain boundary mesostate
    * @param filename name of the file to be written to
