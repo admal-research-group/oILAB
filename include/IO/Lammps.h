@@ -146,7 +146,8 @@ void write_lammps_input_script(const std::string &filename,
                                double gb_thickness_parameter,
                                const std::string &potential_file_path,
                                const std::string &output_dump_file,
-                               bool minimize = false) {
+                               bool minimize = false,
+                               const std::string &minimized_dump_file = "") {
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error opening file for writing lammps input script: " << filename << std::endl;
@@ -199,6 +200,12 @@ void write_lammps_input_script(const std::string &filename,
         file << "minimize        1e-12 1e-12 100000 100000\n";
     }
     file << "run                     0\n";
+    // A single snapshot of the configuration as it now stands -- after the relaxation, if one
+    // was asked for.  The dump above records the trajectory and is overwritten by every state
+    // sharing this thread; this one is the state's own final structure, written where the caller
+    // asked for it.
+    if (!minimized_dump_file.empty())
+        file << "write_dump all custom " << minimized_dump_file << " id type x y z\n";
     file << "variable        coh equal (${peBULK}/${atomsBULK})\n";
     file << "variable        GBene equal (${peGB}-${coh}*${atomsGB})\n";
     file << "print \"coh = ${coh} energy = ${peGB} numAtoms = ${atomsGB} GBene = ${GBene} area = ${area}\" file " << outfile << "\n";
@@ -257,11 +264,14 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
 /*! @param minimize when true the configuration is relaxed in LAMMPS before its energy is read,
  *         so the returned energy is the minimized one.  False (the default) evaluates the
  *         configuration as it stands.
+ *  @param minimizedDumpFile if non-empty, the configuration as LAMMPS leaves it -- relaxed, when
+ *         \p minimize is set -- is written there as a single dump snapshot.
  */
 std::pair<double, double> energy(const std::string& lammpsLocation,
                                  const std::string& oilabConfigFile,
                                  const std::string& potentialFile,
-                                 bool minimize = false)
+                                 bool minimize = false,
+                                 const std::string& minimizedDumpFile = "")
 {
     // Write data
     std::string threadNumber= std::to_string(omp_get_thread_num());
@@ -313,7 +323,8 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
 
     // Write files
     write_lammps_datafile(lammpsDataFile, nbox, new_atoms, 2);
-    write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter, potentialFile, lammpsDumpFile, minimize);
+    write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter,
+                              potentialFile, lammpsDumpFile, minimize, minimizedDumpFile);
 
     // Run the LAMMPS script
     std::string command = lammpsLocation +" -in " + lammpsInputFile + " > /dev/null 2>&1";

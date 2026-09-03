@@ -66,6 +66,20 @@ atomsNear(const Lattice<3>& lattice, const VectorDimD& target, const double& rad
     return out;
 }
 
+/*! Integer coordinates of \p x in \p lattice after wrapping into the bicrystal box, so that
+ *  an atom and its periodic images give the same key.  Candidate atoms are found within dMax of
+ *  a site and can fall outside the box; their in-box image is the atom actually drawn. */
+std::array<long,3> boxKey(const Lattice<3>& lattice,
+                          const std::vector<LatticeVector<3>>& boxVectors,
+                          const VectorDimD& x)
+{
+    VectorDimD wrapped= x;
+    VectorDimD shift; shift << -0.5-FLT_EPSILON, -FLT_EPSILON, -FLT_EPSILON;
+    LatticeVector<3>::modulo(wrapped, boxVectors, shift);
+    const auto v= lattice.latticeVector(wrapped);
+    return {v(0),v(1),v(2)};
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -169,8 +183,14 @@ int main(int argc, char** argv)
         list << "#   A  <i j k>  x = (x y z)  t_A = (x y z)  |t_A|\n";
         list << "#   B  <i j k>  x = (x y z)  t_B = (x y z)  |t_B|\n";
 
-        std::set<std::array<long long,3>> seenA, seenB;
-        std::vector<std::pair<int,VectorDimD>> cloud;   // (type, position) for the XYZ
+        std::vector<LatticeVector<3>> boxVectors(cslVectors);
+        boxVectors[0]= 2*cslVectors[0];
+
+        using Key = std::array<long,3>;
+        std::map<Key,int> aUse, bUse;          // atom -> how many sites it can serve
+        std::vector<std::pair<int,std::vector<std::pair<VectorDimD,int>>>> perSite; // site idx -> (pos,type)
+        std::vector<VectorDimD> sitePos;
+        std::vector<int> siteLevel, siteNa, siteNb;
         std::size_t usable= 0, nodeCount= 0;
         std::size_t minA= 1000, maxA= 0, minB= 1000, maxB= 0;
 
@@ -188,21 +208,26 @@ int main(int argc, char** argv)
             list << "site " << idx << "   s = " << s.transpose()
                  << "   s.n = " << s.dot(nHat)
                  << "   nA = " << nearA.size() << "   nB = " << nearB.size() << "\n";
+            std::vector<std::pair<VectorDimD,int>> members;
             for (const auto& [x,n] : nearA) {
                 const VectorDimD t= s-x;
                 list << "   A  " << n.transpose() << "   x = " << x.transpose()
                      << "   t_A = " << t.transpose() << "   " << t.norm() << "\n";
+                aUse[boxKey(bc.A,boxVectors,x)]++;
+                members.emplace_back(x,1);
             }
             for (const auto& [x,n] : nearB) {
                 const VectorDimD t= s-x;
                 list << "   B  " << n.transpose() << "   x = " << x.transpose()
                      << "   t_B = " << t.transpose() << "   " << t.norm() << "\n";
+                bUse[boxKey(bc.B,boxVectors,x)]++;
+                members.emplace_back(x,2);
             }
-            cloud.emplace_back(1,s);
-            for (const auto& [x,n] : nearA)
-                if (seenA.insert({n(0),n(1),n(2)}).second) cloud.emplace_back(2,x);
-            for (const auto& [x,n] : nearB)
-                if (seenB.insert({n(0),n(1),n(2)}).second) cloud.emplace_back(3,x);
+            perSite.emplace_back((int)idx, members);
+            sitePos.push_back(s);
+            siteLevel.push_back((int)std::llround(s.dot(nHat)/0.4041695));
+            siteNa.push_back((int)nearA.size());
+            siteNb.push_back((int)nearB.size());
         }
         list.close();
 
@@ -211,27 +236,90 @@ int main(int argc, char** argv)
         if (usable) {
             std::cout << "   candidate A atoms per site : " << minA << " to " << maxA << "\n";
             std::cout << "   candidate B atoms per site : " << minB << " to " << maxB << "\n";
-            std::cout << "   distinct A atoms used : " << seenA.size()
-                      << ",  distinct B atoms used : " << seenB.size() << "\n";
+            std::cout << "   distinct A atoms used : " << aUse.size()
+                      << ",  distinct B atoms used : " << bUse.size() << "\n";
             std::cout << "   (site, A atom, B atom) combinations : " << nodeCount << "\n";
         }
         std::cout << "\nwrote sites.txt" << std::endl;
 
-        if (writeVisualization && !cloud.empty())
+        if (writeVisualization && usable)
         {
-            // One in-plane cell, the slab thickness, and enough out-of-plane room to see the
-            // atoms that reach into it.
+            // ---- sites.xyz : the bicrystal, with the candidates and the sites marked ------
+            // Every atom of both grains is written once, so the sites can be read against the
+            // structure they sit in rather than floating on their own.  `role` separates them:
+            // 0 a bulk atom, 1 a candidate atom of A, 2 a candidate atom of B, 3 a
+            // coincidence site.  The same encoding is used in siteAtoms.xyz.
+            // `count` is how many sites an atom can serve, or nA*nB for a site; `level` is
+            // which plane parallel to the boundary a site lies on, 0 being the flat GB.
+            const auto config= bc.box(cslVectors,0);
+            std::vector<std::string> species;
+            std::vector<VectorDimD>  pos;
+            std::vector<int> role, count, level;
+
+            for (const auto& latticeVector : config)
+            {
+                const bool isA= (&(latticeVector.lattice) == &(bc.A));
+                const bool isB= (&(latticeVector.lattice) == &(bc.B));
+                if (!isA && !isB) continue;
+                const Key k= boxKey(isA? bc.A : bc.B, boxVectors, latticeVector.cartesian());
+                const auto& use= isA? aUse : bUse;
+                const auto it= use.find(k);
+                species.push_back(isA? "A" : "B");
+                pos.push_back(latticeVector.cartesian());
+                role.push_back(it==use.end()? 0 : (isA? 1 : 2));
+                count.push_back(it==use.end()? 0 : it->second);
+                level.push_back(0);
+            }
+            const std::size_t bulkCount= pos.size();
+            for (std::size_t i=0; i<sitePos.size(); ++i) {
+                species.push_back("S");
+                pos.push_back(sitePos[i]);
+                role.push_back(3);
+                count.push_back(siteNa[i]*siteNb[i]);
+                level.push_back(siteLevel[i]);
+            }
+
             std::ofstream xyz("sites.xyz");
-            xyz << cloud.size() << "\n";
+            xyz << pos.size() << "\n";
             xyz << "Lattice=\" " << std::setprecision(12)
-                << (4*(slabHalfThickness+dMax)*nHat).transpose() << " "
+                << (2*cslVectors[0].cartesian()).transpose() << " "
                 << p1.transpose() << " " << p2.transpose()
-                << "\" Properties=species:S:1:pos:R:3 PBC=\"F T T\" origin=\" "
-                << (-2*(slabHalfThickness+dMax)*nHat).transpose() << "\"\n";
+                << "\" Properties=species:S:1:pos:R:3:role:I:1:count:I:1:level:I:1"
+                   " PBC=\"F T T\" origin=\" "
+                << (-1*cslVectors[0].cartesian()).transpose() << "\"\n";
             xyz << std::setprecision(6);
-            for (const auto& [type,x] : cloud)
-                xyz << (type==1 ? "S" : (type==2 ? "A" : "B")) << " " << x.transpose() << "\n";
-            std::cout << "wrote sites.xyz  (species S = coincidence site, A / B = candidate atoms)"
+            for (std::size_t i=0; i<pos.size(); ++i)
+                xyz << species[i] << " " << pos[i].transpose() << " "
+                    << role[i] << " " << count[i] << " " << level[i] << "\n";
+            xyz.close();
+            std::cout << "wrote sites.xyz  (" << bulkCount << " grain atoms + "
+                      << sitePos.size() << " sites; role 0 = bulk, 1 = candidate A, 2 = candidate B, 3 = site)\n";
+
+            // ---- siteAtoms.xyz : one frame per site, with just the atoms that form it -----
+            // OVITO reads a concatenated extended XYZ as a trajectory, so stepping through the
+            // frames steps through the sites and shows exactly which atoms can meet at each.
+            std::ofstream assoc("siteAtoms.xyz");
+            assoc << std::setprecision(6);
+            for (std::size_t f=0; f<perSite.size(); ++f)
+            {
+                const auto& [idx,members]= perSite[f];
+                assoc << members.size()+1 << "\n";
+                assoc << "Lattice=\" " << std::setprecision(12)
+                      << (2*cslVectors[0].cartesian()).transpose() << " "
+                      << p1.transpose() << " " << p2.transpose()
+                      << "\" Properties=species:S:1:pos:R:3:role:I:1:distance:R:1"
+                         " PBC=\"F T T\" origin=\" "
+                      << (-1*cslVectors[0].cartesian()).transpose()
+                      << "\" site=" << idx << " s_dot_n=" << sitePos[f].dot(nHat) << "\n";
+                assoc << std::setprecision(6);
+                assoc << "S " << sitePos[f].transpose() << " 3 0.000000\n";
+                for (const auto& [x,type] : members)
+                    assoc << (type==1? "A" : "B") << " " << x.transpose() << " " << type
+                          << " " << (sitePos[f]-x).norm() << "\n";
+            }
+            assoc.close();
+            std::cout << "wrote siteAtoms.xyz  (" << perSite.size()
+                      << " frames, one per site: the site and the atoms that can reach it)"
                       << std::endl;
         }
     }

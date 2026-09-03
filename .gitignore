@@ -51,7 +51,7 @@ build
 /src/Lattices/old
 
 # Run outputs written into the working directory
-results_flatStgb/
+results_*/
 flatStgb_*/
 generalGB_*/
 cslSubLattice.txt

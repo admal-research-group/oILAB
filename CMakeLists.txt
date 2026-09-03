@@ -28,7 +28,14 @@ endif()
 find_package(Eigen3 5.0 REQUIRED NO_MODULE)
 find_package(CGAL REQUIRED CONFIG)
 find_package(VTK REQUIRED COMPONENTS CommonCore CommonDataModel IOXML)
-add_compile_definitions(CGAL_NDEBUG)
+# CGAL_NDEBUG is deliberately NOT set.  It compiles out CGAL's preconditions and internal
+# invariant checks, and the periodic Delaunay triangulation relies on those to reject point sets
+# it cannot handle -- degenerate or near-degenerate arrangements on the torus, which the mesostate
+# enumeration produces in quantity.  With the checks compiled out those inputs corrupted the
+# triangulation instead of being rejected, and the run died later inside the covering-space
+# conversion.  Keeping them costs a little speed and turns a segmentation fault into a catchable
+# error.
+# add_compile_definitions(CGAL_NDEBUG)
 find_package(OpenMP REQUIRED)
 
 # ---------- Subdirectories ----------

@@ -44,6 +44,18 @@ template <int dim> class GbMesoState : public GbContinuum<dim> {
       const std::vector<LatticeVector<dim>> &mesoStateCslVectors,
       const std::deque<std::pair<LatticeVector<dim>, VectorDimD>> &engagedTsPairs);
 
+  /*! \brief The same, for nodes whose two grains are displaced independently.
+   *
+   * Each node carries its own \f$\textbf x_{\mathcal A}\f$, \f$\textbf x_{\mathcal B}\f$
+   * and coincidence point, so the displacements \f$\textbf u_{\mathcal A}=\textbf s-\textbf
+   * x_{\mathcal A}\f$ and \f$\textbf u_{\mathcal B}=\textbf s-\textbf x_{\mathcal B}\f$
+   * are read off rather than split evenly. Both still carry their grain onto \f$\textbf s\f$,
+   * which is all the gluing requires.
+   */
+  static std::pair<XuPairs,XuPairs> getFacetedSurfaces(const Gb<dim> &gb,
+      const std::vector<LatticeVector<dim>> &mesoStateCslVectors,
+      const std::deque<GbNode<dim>> &engagedNodes);
+
   /*!
    * \brief Returns the two in-plane period vectors of the mesostate box in Cartesian
    * coordinates, laid out as \f$\{p_{1x},p_{1y},p_{1z},p_{2x},p_{2y},p_{2z}\}\f$, as
@@ -115,10 +127,24 @@ public:
    */
   const std::deque<std::pair<LatticeVector<dim>, VectorDimD>> engagedTsPairs;
 
+  /*!
+   * The engaged coincidence nodes, when the mesostate was built from them. Empty for a
+   * mesostate built from \p engagedTsPairs, and vice versa.
+   */
+  const std::deque<GbNode<dim>> engagedNodes;
+
   explicit GbMesoState(
       const Gb<dim> &gb,
       const ReciprocalLatticeVector<dim> &axis,
       const std::deque<std::pair<LatticeVector<dim>, VectorDimD>>& engagedTsPairs,
+      const std::vector<LatticeVector<dim>> &mesoStateCslVectors);
+
+  /*! Builds the mesostate from coincidence nodes, so that the two grains may be displaced by
+   * different amounts at each node. */
+  explicit GbMesoState(
+      const Gb<dim> &gb,
+      const ReciprocalLatticeVector<dim> &axis,
+      const std::deque<GbNode<dim>>& engagedNodes,
       const std::vector<LatticeVector<dim>> &mesoStateCslVectors);
 
   /*!
@@ -126,13 +152,21 @@ public:
    * @param minimize when true the configuration is relaxed in LAMMPS before its energy is read,
    * so the returned energy is that of the minimized configuration.  False (the default) reports
    * the energy of the as-constructed configuration.
+   * @param configFile a deformed configuration already written by box(). Writing one is by far
+   * the most expensive step of building a mesostate -- the displacement field is evaluated at
+   * every atom -- so a caller that has written the configuration for its own output should hand
+   * the path over rather than have it computed a second time. Empty (the default) writes a
+   * scratch copy, which is the behaviour when the caller has none.
+   * @param minimizedDumpFile if non-empty, where to write the configuration as LAMMPS leaves it.
    * @return (density, energy) of the mesostate
    */
   // std::pair<double,double> densityEnergy() const;
   std::tuple<double, double>
   densityEnergy(const std::string &lmpLocation,
                 const std::string &potentialName,
-                const bool &minimize = false) const;
+                const bool &minimize = false,
+                const std::string &configFile = "",
+                const std::string &minimizedDumpFile = "") const;
 
   /*! This function outputs/prints a grain boundary mesostate
    * @param filename name of the file to be written to

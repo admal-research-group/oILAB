@@ -20,7 +20,11 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
                                               const GbShiftSearch& search,
                                               const double& tPerpMax,
                                               const bool& oneTranslationPerSite,
-                                              const std::string& filename):
+                                              const std::string& filename,
+                                              const double& slabHalfThickness,
+                                              const double& dMax,
+                                              const bool& dropInvertedNodes,
+                                              const bool& dropZeroJumpNodes):
 /*init*/ GbShifts<dim>(gb, axis,
                        std::vector<LatticeVector<dim>>(ensembleCslVectors.begin() + 1,
                                                        ensembleCslVectors.end()),
@@ -29,7 +33,11 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
                        search,
                        tPerpMax,
                        oneTranslationPerSite,
-                       filename),
+                       filename,
+                       slabHalfThickness,
+                       dMax,
+                       dropInvertedNodes,
+                       dropZeroJumpNodes),
 /*init*/ ensembleCslVectors(ensembleCslVectors){
         std::cout << "--------------------GBMesoStateEnsemble class construction "
                      "---------------------------"
@@ -60,6 +68,19 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
             }
         }
         return engagedTsPairs;
+    }
+
+    /*-------------------------------------*/
+    template<int dim>
+    std::deque<GbNode<dim>>
+        GbMesoStateEnsemble<dim>::getEngagedNodes(const std::vector<GbNode<dim>>& nodes,
+                                                  const typename GbMesoStateEnsemble<dim>::Constraints& constraints)
+    {
+        assert(nodes.size() == constraints.size());
+        std::deque<GbNode<dim>> engagedNodes;
+        for(int i=0; i<nodes.size(); ++i)
+            if (constraints(i) == 1) engagedNodes.push_back(nodes[i]);
+        return engagedNodes;
     }
 
     /*-------------------------------------*/
@@ -98,8 +119,15 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
     /*-------------------------------------*/
     template<int dim>
     GbMesoState<dim> GbMesoStateEnsemble<dim>::constructMesoState(const Constraints& constraints) const {
-        auto engagedTsPairs(getEngagedTsPairs(this->tShiftPairs,constraints));
         try {
+            // A Sites ensemble describes its states as coincidence nodes, whose two grains may be
+            // displaced by different amounts; the other searches describe them as (t,s) pairs,
+            // which always split the displacement evenly.
+            if (this->search == GbShiftSearch::Sites) {
+                auto engagedNodes(getEngagedNodes(this->nodes,constraints));
+                return GbMesoState<dim>(this->gb, this->axis, engagedNodes, ensembleCslVectors);
+            }
+            auto engagedTsPairs(getEngagedTsPairs(this->tShiftPairs,constraints));
             GbMesoState<dim> mesostate(this->gb, this->axis, engagedTsPairs, ensembleCslVectors);
             return mesostate;
         }
@@ -161,7 +189,8 @@ GbMesoStateEnsemble<dim>::GbMesoStateEnsemble(const Gb<dim>& gb,
     template<int dim>
     typename GbMesoStateEnsemble<dim>::Constraints GbMesoStateEnsemble<dim>::initializeState() const
     {
-        Constraints initialConstraints(this->tShiftPairs.size());
+        Constraints initialConstraints(this->search == GbShiftSearch::Sites ?
+                                       this->nodes.size() : this->tShiftPairs.size());
         initialConstraints.setZero();
         return initialConstraints;
     }

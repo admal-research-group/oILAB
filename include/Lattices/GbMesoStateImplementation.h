@@ -46,6 +46,25 @@ GbMesoState<dim>::GbMesoState(
         throw;
     }
 
+template <int dim>
+GbMesoState<dim>::GbMesoState(
+    const Gb<dim> &gb,
+    const ReciprocalLatticeVector<dim> &axis,
+    const std::deque<GbNode<dim>>& engagedNodes,
+    const std::vector<LatticeVector<dim>> &mesoStateCslVectors) try:
+    /*init*/ GbContinuum<dim>(getMesoStateGbDomain(mesoStateCslVectors),
+                              getFacetedSurfaces(gb,mesoStateCslVectors,engagedNodes),
+                              gb.nA.cartesian(),
+                              getMesoStateBoxDim(mesoStateCslVectors)),
+    /*init*/ gb(gb),
+    /*init*/ axis(axis),
+    /*init*/ mesoStateCslVectors(mesoStateCslVectors),
+    /*init*/ engagedNodes(engagedNodes) {}
+    catch(std::runtime_error& e)
+    {
+        throw;
+    }
+
 
     template<int dim>
     Eigen::Matrix<double, dim,dim-1> GbMesoState<dim>::getMesoStateGbDomain(const std::vector<LatticeVector<dim>>& mesoStateCslVectors)
@@ -122,17 +141,99 @@ GbMesoState<dim>::GbMesoState(
         return std::make_pair(xuPairsA,xuPairsB);
     }
 
+    template<int dim>
+    std::pair<typename GbMesoState<dim>::XuPairs, typename GbMesoState<dim>::XuPairs>
+    GbMesoState<dim>::getFacetedSurfaces(const Gb<dim>& gb,
+                                 const std::vector<LatticeVector<dim>>& mesoStateCslVectors,
+                                 const std::deque<GbNode<dim>>& engagedNodes)
+    {
+        XuPairs xuPairsA, xuPairsB;
+
+        std::vector<LatticeVector<dim>> bicrystalBoxVectors(mesoStateCslVectors);
+        bicrystalBoxVectors[0]= 2*mesoStateCslVectors[0];
+        VectorDimD shift;
+        shift << -0.5-FLT_EPSILON,-FLT_EPSILON,-FLT_EPSILON;
+
+        // Remove the common-mode translation.  Far from the boundary each grain is translated
+        // by the mean of its nodal displacements, and only the DIFFERENCE of the two means is
+        // physical -- it is the rigid-body translation between the grains, a microscopic degree
+        // of freedom of the boundary.  Their average is a rigid translation of the whole
+        // bicrystal, which is unobservable under periodic boundaries but is not harmless here:
+        // the LAMMPS energy windows are defined in absolute box coordinates, so a drifting
+        // configuration shifts which atoms are counted as boundary and which as bulk.  The
+        // symmetric split removed it by construction; independent displacements do not.
+        //
+        // Subtracting the same vector from both displacements leaves every jump
+        // u_A - u_B exactly as it was, and moves both deformed surfaces together, so they stay
+        // glued.  Only the coincidence points move, by -drift.
+        VectorDimD drift= VectorDimD::Zero();
+        for(const auto& node : engagedNodes)
+            drift+= 0.5*(node.uA()+node.uB());
+        if (!engagedNodes.empty())
+            drift/= static_cast<double>(engagedNodes.size());
+
+        std::set<OrderedTuplet<dim>> xAIntegerCoordsSet, xBIntegerCoordsSet;
+        for(const auto& node : engagedNodes)
+        {
+            // Read the displacements off the node before wrapping: they are properties of the
+            // node, not of which periodic image its atoms are drawn in.  Wrapping moves an atom
+            // by a box vector and carries its deformed position with it, which is a shift the
+            // two facets then differ by -- an in-plane period, which GbContinuum removes when it
+            // glues them.
+            const VectorDimD uA= node.uA()-drift;
+            const VectorDimD uB= node.uB()-drift;
+            VectorDimD xA= node.xA.cartesian();
+            VectorDimD xB= node.xB.cartesian();
+            LatticeVector<dim>::modulo(xA,bicrystalBoxVectors,shift);
+            LatticeVector<dim>::modulo(xB,bicrystalBoxVectors,shift);
+
+            OrderedTuplet<dim> xAIntegerCoords, xBIntegerCoords;
+            try {
+                xAIntegerCoords << gb.bc.A.latticeVector(xA);
+            }
+            catch(const std::runtime_error& e) {
+                throw std::runtime_error("xA is not a lattice vector of A: " + std::string(e.what()));
+            }
+            try {
+                xBIntegerCoords << gb.bc.B.latticeVector(xB);
+            }
+            catch(const std::runtime_error& e) {
+                throw std::runtime_error("xB is not a lattice vector of B: " + std::string(e.what()));
+            }
+
+            // Two engaged nodes may not use the same atom of either grain.
+            const bool insertedA= xAIntegerCoordsSet.insert(xAIntegerCoords).second;
+            const bool insertedB= xBIntegerCoordsSet.insert(xBIntegerCoords).second;
+            if(!insertedA || !insertedB)
+                throw std::runtime_error("Clash in constraints.");
+
+            xuPairsA.emplace_back(xA,uA);
+            xuPairsB.emplace_back(xB,uB);
+        }
+        return std::make_pair(xuPairsA,xuPairsB);
+    }
+
     /*-------------------------------------*/
     template<int dim>
     std::tuple<double,double> GbMesoState<dim>::densityEnergy(const std::string& lmpLocation,
                                                              const std::string& potentialName,
-                                                             const bool& minimize) const
+                                                             const bool& minimize,
+                                                             const std::string& configFile,
+                                                             const std::string& minimizedDumpFile) const
     {
-        box("temp" + std::to_string(omp_get_thread_num()));
+        // Writing the configuration means evaluating the displacement field at every atom, which
+        // dominates the cost of a mesostate -- so it is done here only when the caller has not
+        // already written one.
+        std::string deformedFile= configFile;
+        if (deformedFile.empty()) {
+            box("temp" + std::to_string(omp_get_thread_num()));
+            deformedFile= "temp" + std::to_string(omp_get_thread_num()) + "_reference1.txt";
+        }
         std::pair<double,double> densityEnergyPair= energy(lmpLocation,
-                                                           "temp" + std::to_string(omp_get_thread_num()) + "_reference1.txt",
+                                                           deformedFile,
                                                            potentialName,
-                                                           minimize);
+                                                           minimize,
+                                                           minimizedDumpFile);
 
 
         return {densityEnergyPair.first,densityEnergyPair.second};

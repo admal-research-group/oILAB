@@ -22,6 +22,12 @@ class GbMesoStateEnsemble : public GbShifts<dim>,
     using BicrystalLatticeVectors = std::vector<LatticeVector<dim>>;
     using Constraints = XTuplet;
 
+    /*! The coincidence nodes a signature engages. Used when the ensemble was built with
+     * \p GbShiftSearch::Sites, where a state is a set of nodes rather than of (t,s) pairs. */
+    static std::deque<GbNode<dim>> getEngagedNodes(
+        const std::vector<GbNode<dim>>& nodes,
+        const Constraints& constraints);
+
     static std::deque<std::pair<LatticeVector<dim>, VectorDimD>> getEngagedTsPairs(
         const std::vector<std::pair<LatticeVector<dim>,VectorDimD>> &bShiftPairs,
         const Constraints &constraints);
@@ -45,7 +51,11 @@ public:
                       const GbShiftSearch& search= GbShiftSearch::Flat,
                       const double& tPerpMax= 1.0e300,
                       const bool& oneTranslationPerSite= false,
-                      const std::string& filename= "translationsNonFlat.txt");
+                      const std::string& filename= "translationsNonFlat.txt",
+                      const double& slabHalfThickness= 1.0,
+                      const double& dMax= 1.5,
+                      const bool& dropInvertedNodes= true,
+                      const bool& dropZeroJumpNodes= true);
 
     /*!
     * \brief Constructs an ensemble of mesostates

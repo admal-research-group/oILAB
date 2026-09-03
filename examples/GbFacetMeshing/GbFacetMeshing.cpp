@@ -181,6 +181,33 @@ LAMMPSData readLAMMPSdatafile(const std::string& filename, int mode = 1)
 
 using namespace oILAB;
 
+/*! Lagrange-Gauss reduction of a 2D basis.  Nearest-lattice-point rounding is only valid on a
+ *  reduced basis: for an oblique cell the closest point can be two cells away in coefficient
+ *  space, so an unreduced basis gives wrong minima. */
+static void gaussReduce(Eigen::Vector3d& q1, Eigen::Vector3d& q2)
+{
+    for (int guard=0; guard<100; ++guard) {
+        if (q2.squaredNorm() < q1.squaredNorm()) std::swap(q1,q2);
+        const double mu= std::round(q1.dot(q2)/q1.squaredNorm());
+        if (mu == 0.0) break;
+        q2-= mu*q1;
+    }
+}
+
+/*! Distance between two in-plane vectors on the torus spanned by \p q1 and \p q2, which must be
+ *  Gauss-reduced. */
+static double torusDistance(const Eigen::Vector3d& d,
+                            const Eigen::Vector3d& q1, const Eigen::Vector3d& q2)
+{
+    Eigen::Matrix<double,3,2> Q; Q.col(0)= q1; Q.col(1)= q2;
+    const Eigen::Vector2d c= Q.colPivHouseholderQr().solve(d);
+    const Eigen::Vector2d centred(c(0)-std::round(c(0)), c(1)-std::round(c(1)));
+    double best= 1.0e300;
+    for (int i=-1;i<=1;++i)
+        for (int j=-1;j<=1;++j)
+            best= std::min(best, (Q*(centred - Eigen::Vector2d(i,j))).norm());
+    return best;
+}
 
 int main()
 {
@@ -204,9 +231,9 @@ int main()
 	VectorDimD axis(0, 0, 1);
 	double theta= 53.130102354155994249*std::numbers::pi/180;       // misorientation angle
 	VectorDimD gbNormal(-2,1,0);                        // Miller indices
-	int heightScaling= 2;
+	int heightScaling= 3;
 	int periodScaling= 1;
-	int axisScaling= 2;
+	int axisScaling= 1;
 
     // ------------------------------------------------------------------ USER CHOICE
     // Every setting of the run lives in this block.  Edit it and rebuild; nothing is read from
@@ -215,8 +242,21 @@ int main()
     // enumerateStates: build every mesostate the ensemble's (t,s) pairs admit.  Set it false to
     // read ready-made signatures from `fin` instead.
     const bool enumerateStates            = true;
-    // Flat = the original enumeration (CSL shifts along the boundary); Full = ball + slab.
-    const GbShiftSearch searchMode        = GbShiftSearch::Full;
+    // Flat = the original enumeration (CSL shifts along the boundary); Full = ball + slab;
+    // Sites = coincidence points first, with the two grains displaced independently.
+    const GbShiftSearch searchMode        = GbShiftSearch::Sites;
+    // Sites only.  The slab about the flat boundary that coincidence points are taken from, and
+    // how far one atom may move to reach one.  The points fall on planes a fixed distance apart
+    // (0.404 A for this boundary), so a slab thinner than that spacing admits only the boundary
+    // plane itself and the run is flat whatever the search.
+    const double slabHalfThickness        = 0.5;   // Angstrom
+    const double dMax                     = 1.5;   // Angstrom
+    // Two engaged coincidence points must be at least this far apart in projection onto the
+    // boundary plane.  Zero admits any pair that is not exactly coincident.  The points lie on a
+    // lattice with spacings 0.404, 0.808, 1.617 A here, so the criterion bites in steps: 0.45
+    // removes the 0.404 A pairs -- the ones that drive ordinary, non-node atoms of the two grains
+    // to within half an Angstrom of each other -- and keeps everything at 0.808 A and beyond.
+    const double minSiteSeparation        = 0.45;  // Angstrom
     // FLAT STGB (commented out).  Restricting to the shifts that lie in the boundary plane
     // leaves the deformed surface planar, which is the flat symmetric-tilt suite.  This run is
     // the general one instead: every (t,s) pair the ensemble holds is available and the boundary
@@ -227,7 +267,7 @@ int main()
     // only ceiling is the clash rule itself: no state can engage two pairs that share a lattice
     // site, so no state can be larger than the smaller of the two site counts.  Every state the
     // walk produces is clash-free, so this is a count of real states, not of candidates.
-    const int maxEngaged                  = 0;
+    const int maxEngaged                  = 8;
     // Refuse to start a run longer than this many states.  Each one is a mesostate construction
     // and, with energies on, a LAMMPS minimization.
     const long long maxStates             = 150000;
@@ -248,14 +288,16 @@ int main()
     // Threads that build and evaluate mesostates in parallel, one LAMMPS process each.  Same
     // shape as tests/testGbMesoState, which runs with num_threads(1); raise it once a serial
     // pass has been seen to work.
-    const int numThreads                  = 60;
+    const int numThreads                  = 80;
     const std::string potentialName       = "Cu_mishin1.eam.alloy";
     const std::string lmpLocation         = "/usr/bin/lmp";
     // -------------------------------------------------------------------------------
 
     std::cout << "states = general (every shift, faceted boundaries allowed)" << std::endl;
-    std::cout << "search = " << (searchMode==GbShiftSearch::Flat ? "Flat (original rule)"
-                                                                : "Full (ball + slab)") << std::endl;
+    std::cout << "search = " << (searchMode==GbShiftSearch::Flat  ? "Flat (original rule)" :
+                                 searchMode==GbShiftSearch::Full  ? "Full (ball + slab)"
+                                                                  : "Sites (coincidence points "
+                                                                    "first)") << std::endl;
 
     // A missing executable or potential is worth catching here: energy() would otherwise run a
     // command that does nothing and then read an output file that was never written.
@@ -347,7 +389,9 @@ int main()
         GbMesoStateEnsemble<3> ensemble(gb, rAxisA, cslVectors,
                                         tMax, sPerpMax,
                                         searchMode, tPerpMax, false,
-                                        "translationsNonFlat.txt");
+                                        searchMode==GbShiftSearch::Sites ? "nodes.txt"
+                                                                         : "translationsNonFlat.txt",
+                                        slabHalfThickness, dMax);
         const int ensembleSize = ensemble.initializeState().size();
         std::cout << "Size of the ensemble = " << ensembleSize << std::endl;
 
@@ -375,70 +419,153 @@ int main()
             //    throw std::runtime_error("No shift lies in the boundary plane, so there is no "
             //                             "flat GB to build. Raise tMax or tPerpMax.");
 
-            std::cout << "\n(t,s) pairs considered: "
+            std::cout << "\ncandidates considered: "
                       << family.size() << " of " << ensembleSize << std::endl;
             if (family.empty())
-                throw std::runtime_error("The ensemble holds no (t,s) pairs. Raise tMax or "
-                                         "tPerpMax.");
+                throw std::runtime_error("The ensemble is empty. Widen the slab, raise dMax, or "
+                                         "raise tMax/tPerpMax for the other searches.");
 
-            // ---- the two sites each pair occupies -----------------------------------------
-            // A pair puts one node on a site of A and one on a site of B, and both are decided by
-            // the pair alone.  GbMesoState rejects any state that engages two pairs sharing
-            // either site, so knowing the sites up front is enough to never enumerate such a
-            // state.  Both sites matter: two pairs can share a B site while their A sites differ
-            // (equal xA *and* equal xB would force the same t and s, i.e. the same pair), so
-            // grouping by A alone -- which is what this example used to do -- leaves half the
-            // collisions to be discovered the expensive way.
-            std::vector<int> siteA(family.size()), siteB(family.size());
+            // ---- the sites each candidate occupies ----------------------------------------
+            // A candidate puts one node on an atom of A and one on an atom of B, and both are
+            // decided by the candidate alone.  GbMesoState rejects any state that engages two
+            // candidates sharing either atom, so knowing them up front is enough never to
+            // enumerate such a state.  Both matter: two candidates can share a B atom while
+            // their A atoms differ.
+            //
+            // A third key covers the coincidence points themselves.  Two that project onto the
+            // same point of the boundary plane are one point of the torus the facets are
+            // triangulated on, and the mesh collapses; two that are merely close leave the facet
+            // rising and falling steeply over a short in-plane distance, which drives ordinary
+            // atoms of the two grains together far more tightly than any lattice spacing.  The
+            // walk therefore keeps engaged coincidence points at least minSiteSeparation apart,
+            // which subsumes the exact case.
+            std::vector<int> siteA(family.size()), siteB(family.size()), projected(family.size());
             std::vector<int> basisPairs;
+            std::vector<VectorDimD> classPosition;   // one coincidence point per projected class
             {
+                // The coincidence point projected onto the flat boundary plane, reduced into one
+                // in-plane period cell.  Two nodes landing on the same projected point are the
+                // same point of the torus the facets are triangulated on, so they collapse the
+                // mesh; excluding them here is cheaper and more informative than discovering it
+                // when the triangulation fails.
+                Eigen::Matrix<double,3,2> inPlane;
+                inPlane.col(0)= cslVectors[1].cartesian();
+                inPlane.col(1)= cslVectors[2].cartesian();
+                const auto inPlaneSolver= inPlane.colPivHouseholderQr();
+                std::map<std::pair<long long,long long>,int> projectedClasses;
+                std::vector<VectorDimD> projectedRepresentative;
+                const auto projectedKey= [&](const VectorDimD& point)
+                {
+                    Eigen::Vector2d c= inPlaneSolver.solve(point);
+                    for (int j=0; j<2; ++j) c(j)-= std::floor(c(j) + 1.0e-9);
+                    return std::make_pair((long long)std::llround(c(0)*1.0e6),
+                                          (long long)std::llround(c(1)*1.0e6));
+                };
+
+                std::vector<LatticeVector<3>> bicrystalBoxVectors(cslVectors);
+                bicrystalBoxVectors[0]= 2*cslVectors[0];
+                VectorDimD wrapShift;
+                wrapShift << -0.5-FLT_EPSILON, -FLT_EPSILON, -FLT_EPSILON;
+
                 std::map<OrderedTuplet<3>,int> aClasses, bClasses;
                 std::vector<int> unplaceable;
                 for (const int i : family)
                 {
                     try {
-                        const auto node= GbMesoState<3>::nodePlacement(
-                            gb, cslVectors, ensemble.tShiftPairs[i].first,
-                            ensemble.tShiftPairs[i].second);
-                        const int a= aClasses.emplace(node.siteA, (int)aClasses.size()).first->second;
-                        const int b= bClasses.emplace(node.siteB, (int)bClasses.size()).first->second;
+                        OrderedTuplet<3> keyA, keyB;
+                        if (searchMode==GbShiftSearch::Sites) {
+                            // An atom and its periodic images are one atom, so the key is taken
+                            // after wrapping into the bicrystal box.
+                            VectorDimD xA= ensemble.nodes[i].xA.cartesian();
+                            VectorDimD xB= ensemble.nodes[i].xB.cartesian();
+                            LatticeVector<3>::modulo(xA, bicrystalBoxVectors, wrapShift);
+                            LatticeVector<3>::modulo(xB, bicrystalBoxVectors, wrapShift);
+                            keyA << gb.bc.A.latticeVector(xA);
+                            keyB << gb.bc.B.latticeVector(xB);
+                        }
+                        else {
+                            const auto placement= GbMesoState<3>::nodePlacement(
+                                gb, cslVectors, ensemble.tShiftPairs[i].first,
+                                ensemble.tShiftPairs[i].second);
+                            keyA= placement.siteA;
+                            keyB= placement.siteB;
+                        }
+                        const VectorDimD coincidence=
+                            (searchMode==GbShiftSearch::Sites) ? ensemble.nodes[i].s
+                                                               : ensemble.tShiftPairs[i].second;
+                        const auto pk= projectedKey(coincidence);
+                        const int a= aClasses.emplace(keyA, (int)aClasses.size()).first->second;
+                        const int b= bClasses.emplace(keyB, (int)bClasses.size()).first->second;
+                        const auto inserted= projectedClasses.emplace(pk, (int)projectedClasses.size());
+                        if (inserted.second) projectedRepresentative.push_back(coincidence);
+                        const int p= inserted.first->second;
                         siteA[basisPairs.size()]= a;
                         siteB[basisPairs.size()]= b;
+                        projected[basisPairs.size()]= p;
                         basisPairs.push_back(i);
                     }
                     catch (const std::runtime_error&) {
                         // A node that misses its lattice cannot take part in any state.  Dropping
-                        // the pair here is what keeps the sweep alive: the construction would
-                        // otherwise hit the same failure with nothing useful to do about it.
+                        // it here is what keeps the sweep alive: the construction would otherwise
+                        // hit the same failure with nothing useful to do about it.
                         unplaceable.push_back(i);
                     }
                 }
                 siteA.resize(basisPairs.size());
                 siteB.resize(basisPairs.size());
+                projected.resize(basisPairs.size());
                 if (!unplaceable.empty())
                     std::cout << "  dropped " << unplaceable.size()
-                              << " pair(s) whose nodes miss their lattice" << std::endl;
-                std::cout << "distinct sites : " << aClasses.size() << " on A, "
-                          << bClasses.size() << " on B" << std::endl;
+                              << " candidate(s) whose nodes miss their lattice" << std::endl;
+                std::cout << "distinct atoms used : " << aClasses.size() << " of A, "
+                          << bClasses.size() << " of B" << std::endl;
+                std::cout << "distinct projected coincidence points : "
+                          << projectedClasses.size() << std::endl;
+                classPosition= projectedRepresentative;
             }
 
             const int n= static_cast<int>(basisPairs.size());
             if (n==0)
                 throw std::runtime_error("No (t,s) pair places both of its nodes on a lattice.");
 
-            // No state can engage two pairs sharing a site on either lattice, so no state can be
-            // larger than the smaller of the two site counts -- asking for more is asking for
-            // nothing.
-            int distinctA= 0, distinctB= 0;
+            // No state can engage two candidates sharing an atom of either grain, nor two whose
+            // coincidence points project onto the same point of the boundary plane, so no state
+            // can be larger than the smallest of the three class counts -- asking for more is
+            // asking for nothing.
+            int distinctA= 0, distinctB= 0, distinctProjected= 0;
             for (int i=0; i<n; ++i) {
                 distinctA= std::max(distinctA, siteA[i]+1);
                 distinctB= std::max(distinctB, siteB[i]+1);
+                distinctProjected= std::max(distinctProjected, projected[i]+1);
             }
-            const int ceiling= std::min(distinctA, distinctB);
+            const int ceiling= std::min({distinctA, distinctB, distinctProjected});
+
+            // Which projected classes a chosen one rules out.  The closed neighbourhood of a
+            // class is itself together with every class within minSiteSeparation of it on the
+            // torus, so blocking the neighbourhood is exactly the pairwise separation condition.
+            // With the separation at zero this degenerates to the class itself, which is the
+            // exact-coincidence key.
+            Eigen::Vector3d reduced1= cslVectors[1].cartesian(), reduced2= cslVectors[2].cartesian();
+            gaussReduce(reduced1, reduced2);
+            std::vector<std::vector<int>> blocks(distinctProjected);
+            {
+                long long conflicting= 0;
+                for (int i=0; i<distinctProjected; ++i) {
+                    blocks[i].push_back(i);
+                    for (int j=0; j<distinctProjected; ++j)
+                        if (j!=i && torusDistance(classPosition[i]-classPosition[j],
+                                                  reduced1, reduced2) < minSiteSeparation) {
+                            blocks[i].push_back(j);
+                            ++conflicting;
+                        }
+                }
+                std::cout << "minimum separation of coincidence points : " << minSiteSeparation
+                          << " A  (" << conflicting/2 << " conflicting class pair(s))" << std::endl;
+            }
             int engagedLimit= (maxEngaged > 0 && maxEngaged < n) ? maxEngaged : n;
             if (engagedLimit > ceiling) {
                 std::cout << "engaging at most " << ceiling
-                          << " pairs at a time (no state can hold more without a clash; "
+                          << " candidates at a time (no state can hold more without a collision; "
                              "maxEngaged asked for "
                           << (maxEngaged > 0 ? std::to_string(maxEngaged) : std::string("all"))
                           << ")" << std::endl;
@@ -453,6 +580,8 @@ int main()
             std::vector<std::vector<int>> subsets;
             {
                 std::vector<char> usedA(distinctA,0), usedB(distinctB,0);
+                // counts, not a flag: a class stays blocked while any chosen node still blocks it
+                std::vector<int> blockedProjected(distinctProjected,0);
                 std::vector<int> combination;
                 bool capped= false;
                 std::function<void(int)> walk = [&](int start)
@@ -462,11 +591,14 @@ int main()
                     if (static_cast<int>(combination.size()) == engagedLimit) return;
                     for (int k=start; k<n && !capped; ++k)
                     {
-                        if (usedA[siteA[k]] || usedB[siteB[k]]) continue;
+                        if (usedA[siteA[k]] || usedB[siteB[k]] || blockedProjected[projected[k]])
+                            continue;
                         usedA[siteA[k]]= 1; usedB[siteB[k]]= 1;
+                        for (const int c : blocks[projected[k]]) ++blockedProjected[c];
                         combination.push_back(basisPairs[k]);
                         walk(k+1);
                         combination.pop_back();
+                        for (const int c : blocks[projected[k]]) --blockedProjected[c];
                         usedA[siteA[k]]= 0; usedB[siteB[k]]= 0;
                     }
                 };
@@ -500,6 +632,30 @@ int main()
 
             auto indexName= [](int i){
                 std::ostringstream o; o << std::setw(3) << std::setfill('0') << i; return o.str(); };
+
+            // One line describing engaged candidate i, whichever search produced it.  A Sites
+            // candidate is a coincidence point with the two grains displaced independently, so
+            // it is reported as the point and the two displacements; the other searches split
+            // one translation evenly, so they are reported as (t,s) as before.
+            const auto describe= [&ensemble,&searchMode,&nHat](const int i)
+            {
+                std::ostringstream o;
+                o << std::fixed << std::setprecision(4);
+                if (searchMode==GbShiftSearch::Sites) {
+                    const auto& node= ensemble.nodes[i];
+                    o << "s=(" << node.s(0) << "," << node.s(1) << "," << node.s(2) << ")"
+                      << "  s.n=" << node.s.dot(nHat)
+                      << "  |uA|=" << node.uA().norm() << "  |uB|=" << node.uB().norm()
+                      << "  |t|=" << node.t().norm();
+                }
+                else {
+                    const Eigen::Vector3d t= ensemble.tShiftPairs[i].first.cartesian();
+                    const Eigen::Vector3d sh= ensemble.tShiftPairs[i].second;
+                    o << "t=(" << t(0) << "," << t(1) << "," << t(2) << ")  s=("
+                      << sh(0) << "," << sh(1) << "," << sh(2) << ")  s.n=" << sh.dot(nHat);
+                }
+                return o.str();
+            };
 
             int built=0, rejected=0;
             std::map<std::string,int> reasons;
@@ -578,12 +734,21 @@ int main()
                                             + std::to_string(configuration) + ".txt");
 
                     // Hand the deformed configuration to LAMMPS and read back what it costs.
-                    // densityEnergy() writes its own temp<thread>_reference1.txt and feeds that
-                    // to the potential, so the state files written above are left alone.
+                    // The file renamed just above is the one LAMMPS wants, so it is passed over
+                    // rather than regenerated: writing a configuration evaluates the displacement
+                    // field at every atom and is by far the most expensive step of a state, so
+                    // letting densityEnergy() write its own scratch copy doubled the cost of the
+                    // whole run.  LAMMPS leaves its relaxed structure in dump.state_<index>_2,
+                    // beside the undeformed and deformed configurations.
                     double density= 0.0, gbEnergy= 0.0;
                     if (energiesRequested) {
+                        const std::string deformedFile= outputDirectory + "/state_"
+                                                      + indexName(index) + "_1.txt";
+                        const std::string minimizedDump= std::filesystem::absolute(
+                            outputDirectory + "/dump.state_" + indexName(index) + "_2").string();
                         std::tie(density,gbEnergy)=
-                            mesostate.densityEnergy(lmpLocation, potentialName, minimizeInLammps);
+                            mesostate.densityEnergy(lmpLocation, potentialName, minimizeInLammps,
+                                                    deformedFile, minimizedDump);
                         if (out_file.is_open())
                             out_file << state << "  " << std::setprecision(8) << density
                                      << "  " << gbEnergy << std::endl;
@@ -599,14 +764,8 @@ int main()
                     report << "  [" << index << "] thread " << omp_get_thread_num() << ", "
                            << engaged.size() << " site(s) -> " << name
                            << "\n           GB signature: " << state;
-                    for (const int i : engaged) {
-                        const Eigen::Vector3d t= ensemble.tShiftPairs[i].first.cartesian();
-                        const Eigen::Vector3d sh= ensemble.tShiftPairs[i].second;
-                        report << "\n           t=(" << std::fixed << std::setprecision(4)
-                               << t(0) << "," << t(1) << "," << t(2) << ")  s=("
-                               << sh(0) << "," << sh(1) << "," << sh(2) << ")"
-                               << "  s.n=" << sh.dot(nHat);
-                    }
+                    for (const int i : engaged)
+                        report << "\n           " << describe(i);
                     report << "\n           facet relief |x.n| = " << std::fixed
                            << std::setprecision(4) << outOfPlane << " A";
                     if (energiesRequested)
@@ -620,13 +779,8 @@ int main()
                     if (energiesRequested)
                         manifestLine << "  " << std::fixed << std::setprecision(8)
                                      << density << "  " << gbEnergy;
-                    for (const int i : engaged) {
-                        const Eigen::Vector3d t= ensemble.tShiftPairs[i].first.cartesian();
-                        const Eigen::Vector3d sh= ensemble.tShiftPairs[i].second;
-                        manifestLine << "   t=(" << std::fixed << std::setprecision(4)
-                                     << t(0) << "," << t(1) << "," << t(2) << ") s=("
-                                     << sh(0) << "," << sh(1) << "," << sh(2) << ")";
-                    }
+                    for (const int i : engaged)
+                        manifestLine << "   " << describe(i);
 
 #pragma omp critical (report)
                     {
@@ -708,6 +862,7 @@ int main()
                 std::cout << "           t=(" << std::fixed << std::setprecision(4)
                           << t(0) << "," << t(1) << "," << t(2) << ")  s=("
                           << sh(0) << "," << sh(1) << "," << sh(2) << ")" << std::endl;
+                // this path reads ready-made (t,s) signatures, so Sites does not reach it
             }
 
             // Output the file for mesostate configuration

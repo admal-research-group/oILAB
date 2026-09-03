@@ -124,11 +124,24 @@ GbFacet::Topology GbFacet::triangulate(const std::vector<Eigen::Vector3d>& point
     for (std::size_t i = 0; i < n; ++i) {
         const Eigen::Vector2d q(points[i].dot(e1), points[i].dot(e2));
         const Eigen::Vector2d c = M_inv * q;
-        uv[i] << c(0) - std::floor(c(0)), c(1) - std::floor(c(1));
         // An input node need not lie in the base cell.  Record how many periods were added to
         // bring it there, because the offsets CGAL reports are relative to the canonical position,
         // not to the position the node was handed in at.
-        wrap[i] = {static_cast<int>(-std::floor(c(0))), static_cast<int>(-std::floor(c(1)))};
+        double u0 = c(0) - std::floor(c(0));
+        double u1 = c(1) - std::floor(c(1));
+        int w0 = static_cast<int>(-std::floor(c(0)));
+        int w1 = static_cast<int>(-std::floor(c(1)));
+        // The domain is half open, and CGAL requires the point to be inside it.  For a coordinate
+        // a hair below zero, floor() gives -1 and the subtraction rounds to exactly 1, landing the
+        // point on the excluded face; fold it back to the other side and take the period with it.
+        // Left unhandled this rejects a fifth of all mesostates -- and, with CGAL's own checks
+        // compiled out, corrupted the triangulation instead of rejecting anything.
+        if (!(u0 < 1.0)) { u0 = 0.0; --w0; }
+        if (!(u1 < 1.0)) { u1 = 0.0; --w1; }
+        if (u0 < 0.0) u0 = 0.0;
+        if (u1 < 0.0) u1 = 0.0;
+        uv[i] << u0, u1;
+        wrap[i] = {w0, w1};
         pts2d.push_back({PDT::Point(uv[i](0), uv[i](1)), i});
     }
 
@@ -626,23 +639,39 @@ int GbFacet::sideOf(const Eigen::Vector3d& x) const
     // A ray that grazes an edge shared by two faces is counted by both of them, so its parity
     // comes out even whichever side the point is on.  That is not a rare accident: a cell holding
     // few nodes is tiled by a couple of large triangles whose shared edge runs right across it.
-    // Shoot three rays in slightly different directions instead and take the majority -- a
-    // degenerate hit is a measure-zero coincidence, so it cannot catch all three at once.
+    // Shoot three rays and take the majority -- a degenerate hit cannot catch all three at once.
     const Eigen::Vector3d reference = (std::abs(planeNormal(0)) < 0.9) ? Eigen::Vector3d::UnitX()
                                                                       : Eigen::Vector3d::UnitY();
     const Eigen::Vector3d inPlane1 = (reference - reference.dot(planeNormal)*planeNormal).normalized();
     const Eigen::Vector3d inPlane2 = planeNormal.cross(inPlane1).normalized();
+
+    // The three rays are separated by moving their ORIGINS in plane, not only by tilting their
+    // directions.  A worse degeneracy than a grazed edge is a ray that leaves through a vertex:
+    // the nodes are lattice sites, so an atom of the same lattice column sits directly above a
+    // node and projects onto it exactly, and the vertex it then passes through is shared by every
+    // triangle meeting there.  Tilting the direction by an angle displaces the ray by that angle
+    // times the distance travelled -- microscopic next to the node spacing, so all three rays
+    // still hit the vertex and the majority confirms the wrong answer rather than escaping it.
+    // Offsetting the origin by a fixed fraction of the period clears the vertex outright, while
+    // staying orders of magnitude below the node spacing, so it cannot move the point across the
+    // surface.  The three offsets are 120 degrees apart so that no single feature can catch them
+    // all; the small tilts are kept, since they separate the rays further along their path.
+    const double offset = 1.0e-3*std::min(period1.norm(), period2.norm());
     constexpr double tilt = 1.0e-4;
+    const Eigen::Vector3d origins[3] = {
+        folded + offset*inPlane1,
+        folded - 0.5*offset*inPlane1 + 0.866*offset*inPlane2,
+        folded - 0.5*offset*inPlane1 - 0.866*offset*inPlane2 };
     const Eigen::Vector3d directions[3] = {
         planeNormal + tilt*inPlane1,
         planeNormal - tilt*inPlane1 + 0.5*tilt*inPlane2,
         planeNormal + 0.7*tilt*inPlane2 };
 
     int votes = 0;
-    for (const Eigen::Vector3d& direction : directions) {
+    for (int r = 0; r < 3; ++r) {
         const MeshBundle::Kernel::Ray_3 ray(
-            MeshBundle::Point(folded(0), folded(1), folded(2)),
-            MeshBundle::Vector(direction(0), direction(1), direction(2)));
+            MeshBundle::Point(origins[r](0), origins[r](1), origins[r](2)),
+            MeshBundle::Vector(directions[r](0), directions[r](1), directions[r](2)));
         votes += (bundle.tree->number_of_intersected_primitives(ray) % 2 == 0) ? 1 : -1;
     }
     return (votes >= 0) ? 1 : -1;
