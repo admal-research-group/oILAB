@@ -267,7 +267,7 @@ int main()
     // only ceiling is the clash rule itself: no state can engage two pairs that share a lattice
     // site, so no state can be larger than the smaller of the two site counts.  Every state the
     // walk produces is clash-free, so this is a count of real states, not of candidates.
-    const int maxEngaged                  = 4;
+    const int maxEngaged                  = 8;
     // Refuse to start a run longer than this many states.  Each one is a mesostate construction
     // and, with energies on, a LAMMPS minimization.
     const long long maxStates             = 150000;
@@ -290,12 +290,12 @@ int main()
     // mesostate away from the state the enumeration produced.  Zero relaxes freely, which is the
     // unconstrained minimisation.  With a tether the run also reports the energy stored in the
     // spring and the energy before any relaxation.
-    const double tetherHalfWidth          = 0.0;   // Angstrom; 0 = full minimisation
-    const double tetherStiffness          = 1.0;   // eV/Angstrom^2
+    const double tetherHalfWidth          = 4.0;   // Angstrom; 0 = full minimisation
+    const double tetherStiffness          = 10.0;  // eV/Angstrom^2
     // Threads that build and evaluate mesostates in parallel, one LAMMPS process each.  Same
     // shape as tests/testGbMesoState, which runs with num_threads(1); raise it once a serial
     // pass has been seen to work.
-    const int numThreads                  = 80;
+    const int numThreads                  = 60;
     const std::string potentialName       = "Cu_mishin1.eam.alloy";
     const std::string lmpLocation         = "/usr/bin/lmp";
     // -------------------------------------------------------------------------------
@@ -630,16 +630,22 @@ int main()
             // there.  Anything else in the name -- the site count, or box()'s own "reference0" /
             // "reference1" suffix -- gives it a second number to latch onto and the sequence is
             // not recognised.  The site count is recorded in states.txt instead.
+            // The engaged-node limit is part of the directory name: runs at different limits are
+            // nested rather than disjoint -- a limit of 4 contains everything a limit of 3 does --
+            // so they are worth keeping side by side, and they must not overwrite one another.
             const std::string outputDirectory=
                 std::string("generalGB_")
-                + (searchMode==GbShiftSearch::Flat ? "flat" : "full");
+                + (searchMode==GbShiftSearch::Flat ? "flat" : "full")
+                + "_maxEngaged"
+                + (maxEngaged > 0 ? std::to_string(maxEngaged) : std::string("all"));
             const std::string meshDirectory = outputDirectory + "/mesh";
             for (const auto& directory : {outputDirectory, meshDirectory})
                 std::filesystem::create_directories(directory);
             std::ofstream manifest(outputDirectory + "/states.txt");
             manifest << "# state_<index>_0.txt = undeformed, state_<index>_1.txt = deformed\n"
                      << "# index  nodes  corrugation  density  energy"
-                     << (tetherHalfWidth > 0.0 ? "  spring  beforeRelaxation" : "")
+                     << (minimizeInLammps ? "  beforeRelaxation" : "")
+                     << (tetherHalfWidth > 0.0 ? "  spring" : "")
                      << "  engaged nodes\n";
 
             std::cout << "writing to " << std::filesystem::absolute(outputDirectory).string()
@@ -776,8 +782,8 @@ int main()
                         if (out_file.is_open()) {
                             out_file << state << "  " << std::setprecision(8) << density
                                      << "  " << gbEnergy;
-                            if (tetherHalfWidth > 0.0)
-                                out_file << "  " << springEnergy << "  " << unminimized;
+                            if (minimizeInLammps) out_file << "  " << unminimized;
+                            if (tetherHalfWidth > 0.0) out_file << "  " << springEnergy;
                             out_file << std::endl;
                         }
                     }
@@ -801,9 +807,10 @@ int main()
                         report << "\n           density = " << std::fixed << std::setprecision(6)
                                << density << "   energy = " << gbEnergy
                                << (minimizeInLammps ? "  (minimized)" : "  (unrelaxed)");
-                        if (tetherHalfWidth > 0.0)
-                            report << "\n           spring = " << springEnergy
-                                   << "   before relaxation = " << unminimized;
+                        if (minimizeInLammps)
+                            report << "\n           before relaxation = " << unminimized
+                                   << (tetherHalfWidth > 0.0
+                                       ? "   spring = " + std::to_string(springEnergy) : "");
                     }
 
                     std::ostringstream manifestLine;
@@ -812,8 +819,8 @@ int main()
                     if (energiesRequested) {
                         manifestLine << "  " << std::fixed << std::setprecision(8)
                                      << density << "  " << gbEnergy;
-                        if (tetherHalfWidth > 0.0)
-                            manifestLine << "  " << springEnergy << "  " << unminimized;
+                        if (minimizeInLammps) manifestLine << "  " << unminimized;
+                        if (tetherHalfWidth > 0.0) manifestLine << "  " << springEnergy;
                     }
                     for (std::size_t e=0; e<engaged.size(); ++e)
                         manifestLine << "   " << describe(mesostate,e);

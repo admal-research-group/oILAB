@@ -261,6 +261,34 @@ GbMesoState<dim>::GbMesoState(
 
         std::vector<VectorDimD> referenceConfigA, deformedConfigA;
         std::vector<VectorDimD> referenceConfigB, deformedConfigB;
+        // Species written for each atom: coincidenceType for the atoms the mesostate brings
+        // together, the grain's own type for the rest.
+        std::vector<int> speciesA, speciesB;
+
+        // Which atoms are the ones brought into coincidence.  They are identified by the same
+        // wrapped integer coordinates the clash rule uses, because an atom of the configuration
+        // and the node describing it need not be given in the same periodic image.  Marking them
+        // is what lets the boundary the construction actually built be picked out of the relaxed
+        // structure: after LAMMPS fuses each coincident pair, the survivor still carries this
+        // species, so the atoms forming the boundary plane remain identifiable.
+        std::vector<LatticeVector<dim>> bicrystalBoxVectors(mesoStateCslVectors);
+        bicrystalBoxVectors[0]= 2*mesoStateCslVectors[0];
+        VectorDimD nodeShift;
+        nodeShift << -0.5-FLT_EPSILON,-FLT_EPSILON,-FLT_EPSILON;
+        const auto siteKey= [&bicrystalBoxVectors,&nodeShift]
+                            (const Lattice<dim>& lattice, const VectorDimD& x)
+        {
+            VectorDimD wrapped= x;
+            LatticeVector<dim>::modulo(wrapped,bicrystalBoxVectors,nodeShift);
+            OrderedTuplet<dim> key;
+            key << lattice.latticeVector(wrapped);
+            return key;
+        };
+        std::set<OrderedTuplet<dim>> coincidentA, coincidentB;
+        for (const auto& [x,u] : this->xuPairsOfFacetedSurfaces.first)
+            coincidentA.insert(siteKey(gb.bc.A,x));
+        for (const auto& [x,u] : this->xuPairsOfFacetedSurfaces.second)
+            coincidentB.insert(siteKey(gb.bc.B,x));
 
         // Fold positions back into the box along the two periodic directions.  The header written
         // below declares PBC="F T T": box vectors 1 and 2 are periodic, while the first spans the
@@ -301,11 +329,15 @@ GbMesoState<dim>::GbMesoState(
                 x= latticeVector.cartesian() + this->displacement(latticeVector.cartesian(),1);
                 referenceConfigA.push_back(wrapIntoBox(latticeVector.cartesian()));
                 deformedConfigA.push_back(wrapIntoBox(x));
+                speciesA.push_back(coincidentA.count(siteKey(gb.bc.A,latticeVector.cartesian()))
+                                   ? coincidenceType : 1);
             }
             else if (&(latticeVector.lattice) == &(gb.bc.B) && this->inGrainB(latticeVector.cartesian())) {
                 x= latticeVector.cartesian() + this->displacement(latticeVector.cartesian(),2);
                 referenceConfigB.push_back(wrapIntoBox(latticeVector.cartesian()));
                 deformedConfigB.push_back(wrapIntoBox(x));
+                speciesB.push_back(coincidentB.count(siteKey(gb.bc.B,latticeVector.cartesian()))
+                                   ? coincidenceType : 2);
             }
         }
 
@@ -366,14 +398,18 @@ GbMesoState<dim>::GbMesoState(
         reference << std::setprecision(15) << (-referenceScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
         deformed << std::setprecision(15) << (-deformedScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
 
-        for(const auto& position : referenceConfigA)
-            reference << 1 << " " << std::setprecision(15) << position.transpose() << "  " << 0.05 << std::endl;
-        for(const auto& position : referenceConfigB)
-            reference << 2 << " " << std::setprecision(15) << position.transpose() << "  " << 0.05 << std::endl;
-        for(const auto& position : deformedConfigA)
-            deformed << 1 << " " << std::setprecision(15) << position.transpose() << "  " << 0.05 << std::endl;
-        for(const auto& position : deformedConfigB)
-            deformed << 2 << " " << std::setprecision(15) << position.transpose() << "  " << 0.05 << std::endl;
+        for(std::size_t i=0; i<referenceConfigA.size(); ++i)
+            reference << speciesA[i] << " " << std::setprecision(15)
+                      << referenceConfigA[i].transpose() << "  " << 0.05 << std::endl;
+        for(std::size_t i=0; i<referenceConfigB.size(); ++i)
+            reference << speciesB[i] << " " << std::setprecision(15)
+                      << referenceConfigB[i].transpose() << "  " << 0.05 << std::endl;
+        for(std::size_t i=0; i<deformedConfigA.size(); ++i)
+            deformed << speciesA[i] << " " << std::setprecision(15)
+                     << deformedConfigA[i].transpose() << "  " << 0.05 << std::endl;
+        for(std::size_t i=0; i<deformedConfigB.size(); ++i)
+            deformed << speciesB[i] << " " << std::setprecision(15)
+                     << deformedConfigB[i].transpose() << "  " << 0.05 << std::endl;
 
         reference.close();
         deformed.close();

@@ -167,7 +167,11 @@ void write_lammps_input_script(const std::string &filename,
     file << "neigh_modify every 1 delay 2 check yes\n";
     file << "read_data " << infile << "\n";
     file << "pair_style      eam/alloy\n";
-    file << "pair_coeff      * * ${potential_path} Cu Cu\n";
+    // Three species: grain A, grain B, and the atoms the mesostate brings into coincidence.
+    // All are the same element, so every type maps to the same entry of the potential; the third
+    // exists only so the boundary the construction built can be picked out of the output.  The
+    // overlap removal below fuses each coincident pair, and the survivor keeps the species.
+    file << "pair_coeff      * * ${potential_path} Cu Cu Cu\n";
     file << "delete_atoms overlap 1e-2 all all\n";
     file << "variable area equal ly*lz\n";
     file << "variable        xlogb equal xlo+" << std::setprecision(8) << gb_thickness_parameter << "\n";
@@ -381,7 +385,7 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
     double gb_thickness_parameter= 6;
 
     // Write files
-    write_lammps_datafile(lammpsDataFile, nbox, new_atoms, 2);
+    write_lammps_datafile(lammpsDataFile, nbox, new_atoms, 3);
     write_lammps_input_script(lammpsInputFile, lammpsDataFile, outfile, gb_thickness_parameter,
                               potentialFile, lammpsDumpFile, minimize, minimizedDumpFile,
                               tetherHalfWidth, tetherStiffness);

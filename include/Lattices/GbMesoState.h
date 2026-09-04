@@ -101,6 +101,12 @@ public:
                                      const LatticeVector<dim> &t,
                                      const VectorDimD &s);
 
+  /*! Species written for the atoms the mesostate brings into coincidence, so that the boundary
+   *  the construction built can be picked out of the relaxed structure.  Grain \f$\mathcal A\f$
+   *  is 1 and \f$\mathcal B\f$ is 2; both members of a coincident pair carry this instead, so
+   *  whichever of the two survives the overlap removal still identifies the boundary plane. */
+  static constexpr int coincidenceType = 3;
+
   /*!
    * Grain boundary
    */
