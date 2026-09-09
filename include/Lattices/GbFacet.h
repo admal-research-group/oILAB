@@ -35,6 +35,14 @@ class GbFacet
 {
 public:
 
+    /*! Whether a facet announces itself on stdout when it is built.
+     *
+     *  Off by default.  A sweep builds three facets per mesostate -- the two grains' and the
+     *  deformed surface -- so over a run of any size the announcements are tens of thousands of
+     *  lines, interleaved from every thread, and they bury whatever the run was actually
+     *  reporting.  Turn it on for a single state, where the mesh is the thing being looked at. */
+    static bool announceConstruction;
+
     /*! One corner of a triangle.  \p node indexes the point cloud, and \p o1,\p o2 are
      * periodic image offsets: the corner sits at
      * \f$\mathbf x_{node}+o_1\mathbf p_1+o_2\mathbf p_2\f$.

@@ -12,3 +12,10 @@ target_include_directories(GbFacetMeshing PRIVATE
 )
 
 target_link_libraries(GbFacetMeshing PRIVATE oILAB OpenMP::OpenMP_CXX)
+
+# Sweep output goes to <project>/runs, not to the build tree.  Baked in as an absolute path so
+# that the results land in the same place however the example is started -- from CLion, from the
+# build directory, or from anywhere else -- and so that clearing or regenerating the build tree
+# cannot reach them.
+target_compile_definitions(GbFacetMeshing PRIVATE
+        GBFACETMESHING_RUNS_DIR="${PROJECT_SOURCE_DIR}/runs")

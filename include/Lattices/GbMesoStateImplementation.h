@@ -215,6 +215,92 @@ GbMesoState<dim>::GbMesoState(
 
     /*-------------------------------------*/
     template<int dim>
+    typename GbMesoState<dim>::Relaxations
+    GbMesoState<dim>::relaxations(const std::string& lmpLocation,
+                                  const std::string& potentialName,
+                                  const std::string& configFile,
+                                  const double& tetherHalfWidth,
+                                  const double& tetherStiffness,
+                                  const std::string& tetheredDumpFile,
+                                  const std::string& fullDumpFile,
+                                  const bool& chainRelaxations) const
+    {
+        // As in densityEnergy(): writing the configuration is the expensive part, so it is done
+        // once here at most, and both relaxations read the same file.
+        std::string deformedFile= configFile;
+        if (deformedFile.empty()) {
+            box("temp" + std::to_string(omp_get_thread_num()));
+            deformedFile= "temp" + std::to_string(omp_get_thread_num()) + "_reference1.txt";
+        }
+
+        Relaxations result;
+
+        if (chainRelaxations && tetherHalfWidth > 0.0)
+        {
+            // One invocation for both: LAMMPS relaxes against the restraint, reports, releases
+            // it, and relaxes again from there.  The tethered structure goes to the first dump
+            // and the freely relaxed one to the second, as when the two are run separately.
+            double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
+            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+                                        tetheredDumpFile, tetherHalfWidth, tetherStiffness,
+                                        &spring, &unrelaxedEnergy,
+                                        true, fullDumpFile, &freeEnergy);
+            result.density  = tethered.first;
+            result.tethered = tethered.second;
+            result.spring   = spring;
+            result.unrelaxed= unrelaxedEnergy;
+            result.full     = freeEnergy;
+            return result;
+        }
+
+        if (tetherHalfWidth > 0.0 && bothRelaxationsInOneInvocation)
+        {
+            // Both relaxations in one LAMMPS invocation.  They are still two independent runs --
+            // the second starts with its own clear and read_data, from the configuration the
+            // construction produced, not from where the tether left the atoms -- so the answers
+            // are those of two separate invocations.  What is saved is a process launch, a parse
+            // of the potential file and a neighbour-list build, which is most of what an
+            // invocation costs; the physics is untouched.
+            double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
+            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+                                        tetheredDumpFile, tetherHalfWidth, tetherStiffness,
+                                        &spring, &unrelaxedEnergy,
+                                        false, fullDumpFile, &freeEnergy, true);
+            result.density  = tethered.first;
+            result.tethered = tethered.second;
+            result.spring   = spring;
+            result.unrelaxed= unrelaxedEnergy;
+            result.full     = freeEnergy;
+            return result;
+        }
+
+        // One invocation per relaxation: the free one first, then the tethered one if there is
+        // a tether.  Slower by a process launch and a potential parse per state, and the answer
+        // is the same -- which is what makes it the check on the shared-invocation path above.
+        double ignoredSpring= 0.0, unrelaxed= 0.0;
+        const auto full= energy(lmpLocation, deformedFile, potentialName, true,
+                                fullDumpFile, 0.0, 1.0, &ignoredSpring, &unrelaxed);
+        result.density  = full.first;
+        result.full     = full.second;
+        result.unrelaxed= unrelaxed;
+        result.tethered = result.full;
+        result.spring   = 0.0;
+        if (tetherHalfWidth > 0.0) {
+            double spring= 0.0, unrelaxedAgain= 0.0;
+            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+                                        tetheredDumpFile, tetherHalfWidth, tetherStiffness,
+                                        &spring, &unrelaxedAgain);
+            result.tethered= tethered.second;
+            result.spring  = spring;
+            if (std::abs(tethered.first - result.density) > 1.0e-9)
+                throw std::runtime_error("the tethered and free relaxations of one mesostate "
+                                         "disagree on its density");
+        }
+        return result;
+    }
+
+    /*-------------------------------------*/
+    template<int dim>
     std::tuple<double,double> GbMesoState<dim>::densityEnergy(const std::string& lmpLocation,
                                                              const std::string& potentialName,
                                                              const bool& minimize,
@@ -251,7 +337,8 @@ GbMesoState<dim>::GbMesoState(
 
     template<int dim>
     typename std::enable_if<dim==3,void>::type
-    GbMesoState<dim>::box(const std::string& name) const
+    GbMesoState<dim>::box(const std::string& name, int* atomsExpelled,
+                          const bool& dropUnengagedCoincidences, int* atomsDropped) const
     {
         const auto& config= gb.bc.box(mesoStateCslVectors,0);
         std::vector<LatticeVector<3>> boxVectors;
@@ -261,6 +348,10 @@ GbMesoState<dim>::GbMesoState(
 
         std::vector<VectorDimD> referenceConfigA, deformedConfigA;
         std::vector<VectorDimD> referenceConfigB, deformedConfigB;
+        // Atoms the deformation carries out of their own grain, counted so that a caller can see
+        // that it happened: it changes the atom count, and with it the density the energy is
+        // reported against.
+        int expelled= 0;
         // Species written for each atom: coincidenceType for the atoms the mesostate brings
         // together, the grain's own type for the rest.
         std::vector<int> speciesA, speciesB;
@@ -327,6 +418,13 @@ GbMesoState<dim>::GbMesoState(
             // interpenetrate and the box holds roughly twice the atoms it should.
             if (&(latticeVector.lattice) == &(gb.bc.A) && this->inGrainA(latticeVector.cartesian())) {
                 x= latticeVector.cartesian() + this->displacement(latticeVector.cartesian(),1);
+                // The cut above is made at the REFERENCE facet, which is the right cut to make
+                // there -- but the displacement can carry an atom that was on its own side of
+                // that facet through the deformed surface and into the other grain, where it has
+                // no business being.  It is dropped from both configurations rather than from the
+                // deformed one alone: the two are the same atoms seen before and after, and a
+                // state does not contain an atom that its own deformation expels.
+                if (!this->inGrainAAfterDeformation(x)) { ++expelled; continue; }
                 referenceConfigA.push_back(wrapIntoBox(latticeVector.cartesian()));
                 deformedConfigA.push_back(wrapIntoBox(x));
                 speciesA.push_back(coincidentA.count(siteKey(gb.bc.A,latticeVector.cartesian()))
@@ -334,12 +432,135 @@ GbMesoState<dim>::GbMesoState(
             }
             else if (&(latticeVector.lattice) == &(gb.bc.B) && this->inGrainB(latticeVector.cartesian())) {
                 x= latticeVector.cartesian() + this->displacement(latticeVector.cartesian(),2);
+                if (!this->inGrainBAfterDeformation(x)) { ++expelled; continue; }
                 referenceConfigB.push_back(wrapIntoBox(latticeVector.cartesian()));
                 deformedConfigB.push_back(wrapIntoBox(x));
                 speciesB.push_back(coincidentB.count(siteKey(gb.bc.B,latticeVector.cartesian()))
                                    ? coincidenceType : 2);
             }
         }
+
+        if (atomsExpelled) *atomsExpelled= expelled;
+
+        // ---- drop the coincidences this state did not engage ---------------------------
+        // The displacement field cannot be aimed at the engaged nodes alone: wherever it happens
+        // to close the gap between two other atoms of the two grains, those meet as well.  The
+        // configuration then holds coincidences the signature never named, and shows coincidence
+        // points the state never chose.
+        //
+        // A coincidence the state did not engage is removed entirely: both of the atoms that
+        // met there are left out, so the site is empty rather than holding the one atom a
+        // fusion would have left.
+        //
+        // This is not free.  Leaving one atom would have been pure bookkeeping -- the survivor
+        // is what the overlap removal produces anyway -- but removing both puts a vacancy in the
+        // boundary, so the atom count, the density and the relaxed structure all differ from
+        // what the same state gives untouched.  That is the point: an unengaged site should look
+        // unengaged, and an atom sitting on it looks exactly like one that was engaged.  The
+        // cost is that these states are no longer the states the enumeration nominally built,
+        // and their energies are not comparable with a run that kept the atoms.
+        //
+        // A group holding an engaged atom is the state's own coincidence and stays; it loses
+        // only the ordinary atoms that drifted onto it.
+        int dropped= 0;
+        if (dropUnengagedCoincidences)
+        {
+            const std::size_t countA= deformedConfigA.size();
+            std::vector<VectorDimD> deformed(deformedConfigA);
+            deformed.insert(deformed.end(), deformedConfigB.begin(), deformedConfigB.end());
+            std::vector<int> species(speciesA);
+            species.insert(species.end(), speciesB.begin(), speciesB.end());
+            const std::size_t total= deformed.size();
+
+            // Grouped with the cutoff the overlap removal uses, so what is grouped here is what
+            // LAMMPS would have fused.  The in-plane coordinates are taken once per atom rather
+            // than once per pair: the pair loop is then arithmetic, and the periodic images are
+            // handled by rounding the difference of those coordinates.
+            const auto inPlaneSolver= inPlanePeriods.colPivHouseholderQr();
+            std::vector<Eigen::Matrix<double,dim-1,1>> inPlane(total);
+            std::vector<VectorDimD> outOfPlane(total);
+            for (std::size_t i=0; i<total; ++i) {
+                inPlane[i]= inPlaneSolver.solve(deformed[i]);
+                outOfPlane[i]= deformed[i] - inPlanePeriods*inPlane[i];
+            }
+
+            std::vector<int> parent(total);
+            for (std::size_t i=0; i<total; ++i) parent[i]= (int)i;
+            const auto root= [&parent](int i)
+            { while (parent[i]!=i) { parent[i]= parent[parent[i]]; i= parent[i]; } return i; };
+
+            for (std::size_t i=0; i<total; ++i)
+                for (std::size_t j=i+1; j<total; ++j)
+                {
+                    Eigen::Matrix<double,dim-1,1> difference= inPlane[i]-inPlane[j];
+                    for (int k=0; k<dim-1; ++k) difference(k)-= std::round(difference(k));
+                    const VectorDimD separation=
+                        inPlanePeriods*difference + (outOfPlane[i]-outOfPlane[j]);
+                    if (separation.norm() >= lammpsOverlapCutoff) continue;
+                    const int ri= root((int)i), rj= root((int)j);
+                    if (ri!=rj) parent[ri]= rj;
+                }
+
+            std::vector<int> groupSize(total,0), groupEngaged(total,0);
+            for (std::size_t i=0; i<total; ++i) {
+                const int r= root((int)i);
+                ++groupSize[r];
+                if (species[i]==coincidenceType) ++groupEngaged[r];
+            }
+
+            std::vector<char> keep(total,1);
+            for (std::size_t i=0; i<total; ++i) {
+                const int r= root((int)i);
+                if (groupSize[r] < 2) continue;                    // not a coincidence at all
+                if (groupEngaged[r] > 0) {
+                    // The state's own coincidence: keep what it engaged, drop what drifted in.
+                    if (species[i]!=coincidenceType) keep[i]= 0;
+                }
+                else keep[i]= 0;      // nobody engaged this: the whole coincidence goes
+            }
+
+            // An atom the field carries onto the boundary surface without meeting another one
+            // there is the same problem in a milder form.  It forms no coincidence, so the
+            // grouping above leaves it -- but it stands on the surface exactly where an engaged
+            // atom would, so the boundary shows a point of contact the state never chose, and
+            // the site it fills should be empty.  The side tests keep such an atom deliberately,
+            // on the reasoning that atoms on the facet are the ones the grains are brought
+            // together at; that reasoning is about coincidences and does not cover this.
+            //
+            // Only atoms of the state's own coincidences are allowed to stand on the surface.
+            // Judged with the cutoff the overlap removal uses, not with a floating-point
+            // epsilon: an atom a few thousandths of an angstrom off the surface is standing on
+            // the boundary as surely as one exactly on it, and the two have to be treated alike
+            // or the rule catches only the ones that happen to land exactly.
+            for (std::size_t i=0; i<total; ++i) {
+                if (!keep[i] || species[i]==coincidenceType) continue;
+                if (this->onDeformedSurface(deformed[i], lammpsOverlapCutoff)) keep[i]= 0;
+            }
+
+            std::vector<VectorDimD> keptReferenceA, keptDeformedA, keptReferenceB, keptDeformedB;
+            std::vector<int> keptSpeciesA, keptSpeciesB;
+            for (std::size_t i=0; i<total; ++i) {
+                if (!keep[i]) { ++dropped; continue; }
+                if (i < countA) {
+                    keptReferenceA.push_back(referenceConfigA[i]);
+                    keptDeformedA.push_back(deformedConfigA[i]);
+                    keptSpeciesA.push_back(speciesA[i]);
+                }
+                else {
+                    const std::size_t k= i-countA;
+                    keptReferenceB.push_back(referenceConfigB[k]);
+                    keptDeformedB.push_back(deformedConfigB[k]);
+                    keptSpeciesB.push_back(speciesB[k]);
+                }
+            }
+            referenceConfigA= std::move(keptReferenceA);
+            deformedConfigA=  std::move(keptDeformedA);
+            speciesA=         std::move(keptSpeciesA);
+            referenceConfigB= std::move(keptReferenceB);
+            deformedConfigB=  std::move(keptDeformedB);
+            speciesB=         std::move(keptSpeciesB);
+        }
+        if (atomsDropped) *atomsDropped= dropped;
 
         int nAtoms= referenceConfigA.size()+referenceConfigB.size();
 

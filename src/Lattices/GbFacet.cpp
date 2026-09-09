@@ -20,6 +20,9 @@
 #include <limits>
 
 #include <CGAL/Periodic_2_Delaunay_triangulation_2.h>
+
+// Quiet by default; see the declaration for why.
+bool GbFacet::announceConstruction = false;
 #include <CGAL/Periodic_2_Delaunay_triangulation_traits_2.h>
 #include <CGAL/Periodic_2_triangulation_vertex_base_2.h>
 #include <CGAL/Periodic_2_triangulation_face_base_2.h>
@@ -431,6 +434,7 @@ GbFacet::GbFacet(const std::vector<std::vector<double>>& point_cloud,
     planeNormal = meanNormal.normalized();
     centroid    = meshData.vertices.colwise().mean().transpose();
 
+    if (!announceConstruction) return;
     std::cout << "Mesh built with " << nVertices << " vertices (" << point_cloud.size()
               << " nodes + periodic copies), " << nFaces << " faces";
     if (nDegenerate > 0)

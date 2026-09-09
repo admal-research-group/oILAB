@@ -28,6 +28,19 @@ namespace detail {
         return pc;
     }
 
+    /*! The deformed nodes as a point cloud carrying no displacement, which is what a facet
+     *  standing for the deformed surface itself is built from. */
+    template<int dim, typename Pairs>
+    inline std::vector<std::vector<double>> deformedCloud(const Pairs& pairs) {
+        std::vector<std::vector<double>> pc;
+        pc.reserve(pairs.size());
+        for (const auto& [x, u] : pairs) {
+            const Eigen::Vector3d d = toVec3<dim>(x) + toVec3<dim>(u);
+            pc.push_back({d(0), d(1), d(2), 0.0, 0.0, 0.0});
+        }
+        return pc;
+    }
+
     /*! The deformed nodes \f$\mathbf x_i+\mathbf u_i\f$, i.e. where the surface actually sits.
      *  These are what the shared triangulation is built from. */
     template<int dim, typename Pairs>
@@ -112,7 +125,6 @@ namespace detail {
                                   const std::pair<XuPairs,XuPairs>& xuPairsOfFacetedSurfaces,
                                   const VectorDimD& normalGrainA,
                                   const std::vector<double>& boxDim,
-                                  const int& facetRefinement,
                                   const bool &verbosity) :
     /*init*/ gbDomain(domain),
     /*init*/ xuPairsOfFacetedSurfaces(xuPairsOfFacetedSurfaces),
@@ -124,10 +136,15 @@ namespace detail {
     // The two facets share a connectivity but face opposite ways: grain A occupies the +nA side
     // and grain B the -nA side, and each grain has to sit on the POSITIVE side of its own facet
     // for the solid angle -- hence the sign of its displacement -- to come out right.
-    /*init*/ facetA(detail::xuPairsToCloud<dim>(xuPairsOfFacetedSurfaces.first),  boxDim, sharedTopology, senseA, 4, facetRefinement),
+    /*init*/ facetA(detail::xuPairsToCloud<dim>(xuPairsOfFacetedSurfaces.first),  boxDim, sharedTopology, senseA, facetImageShells, facetRefinement),
     /*init*/ facetB(detail::gluedCloudB<dim>(xuPairsOfFacetedSurfaces.first,
                                             xuPairsOfFacetedSurfaces.second,
-                                            boxDim), boxDim, sharedTopology, senseB, 4, facetRefinement){
+                                            boxDim), boxDim, sharedTopology, senseB, facetImageShells, facetRefinement),
+    // Built from grain A's deformed nodes, but it is grain B's deformed surface just as much:
+    // the two coincide, which is what assertFacetsGlue() checks.  senseA is carried over so
+    // that "inside grain A" reads the same way here as it does for facetA.
+    /*init*/ deformedSurface(detail::deformedCloud<dim>(xuPairsOfFacetedSurfaces.first),
+                             boxDim, sharedTopology, senseA, facetImageShells, 1){
 
         assertFacetsGlue();
 
@@ -188,6 +205,28 @@ namespace detail {
         // together at, so they belong to the grain rather than to neither side of it.
         return facetA.isOnSurface(to3D(x)) || sideAlongNormalGrainA(facetA, senseA, x) < 0;
     }
+    template<int dim>
+    bool GbContinuum<dim>::inGrainAAfterDeformation(const VectorDimD &x) const {
+        // The same test as inGrainA(), asked of the deformed surface instead of the reference
+        // facet.  Atoms sitting on the surface are kept: those are the sites the two grains are
+        // brought together at, so they belong to the grain rather than to neither side of it.
+        return deformedSurface.isOnSurface(to3D(x))
+            || sideAlongNormalGrainA(deformedSurface, senseA, x) < 0;
+    }
+
+    template<int dim>
+    bool GbContinuum<dim>::inGrainBAfterDeformation(const VectorDimD &x) const {
+        // One surface, so the same query with the other side counting as inside.
+        return deformedSurface.isOnSurface(to3D(x))
+            || sideAlongNormalGrainA(deformedSurface, senseA, x) > 0;
+    }
+
+    template<int dim>
+    bool GbContinuum<dim>::onDeformedSurface(const VectorDimD &x,
+                                             const double &tolerance) const {
+        return deformedSurface.isOnSurface(to3D(x), tolerance);
+    }
+
     template<int dim>
     bool GbContinuum<dim>::inGrainB(const VectorDimD &x) const {
         // check if x belongs to the grain 2, i.e. the appropriate side of the second

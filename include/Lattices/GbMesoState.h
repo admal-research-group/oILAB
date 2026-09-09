@@ -171,6 +171,52 @@ public:
    * @param unminimizedEnergy if non-null, receives the boundary energy before relaxation.
    * @return (density, energy) of the mesostate
    */
+  /*! \brief What both relaxations of one mesostate cost.
+   *
+   *  A tether answers "what does the state the enumeration built cost", by holding the boundary
+   *  atoms where the construction put them; a free minimisation answers "what does the boundary
+   *  this state leads to cost", by letting them go.  The two are different questions and a
+   *  faceting study wants both, so both are reported, together with the energy before either
+   *  relaxation. */
+  struct Relaxations
+  {
+    double density   = 0.0;   //!< atoms in the boundary region; the same for both relaxations,
+                              //!< since the overlap removal and the group definitions precede them
+    double unrelaxed = 0.0;   //!< the configuration as constructed, before any relaxation
+    double tethered  = 0.0;   //!< relaxed with the boundary atoms restrained
+    double spring    = 0.0;   //!< energy the restraint had to store to hold them
+    double full      = 0.0;   //!< relaxed with nothing held
+  };
+
+  /*! \brief Run both relaxations of this mesostate, each from the as-constructed configuration.
+   *
+   *  The two are separate LAMMPS runs over the same input, not one run continued: a free
+   *  minimisation started from the tethered result would be exploring the neighbourhood of the
+   *  tethered structure rather than of the state itself, and the two energies would no longer be
+   *  comparable.  With \p tetherHalfWidth at zero there is only one relaxation to run and the
+   *  tethered figures repeat the free ones.
+   *
+   *  \p chainRelaxations does the two in one invocation instead: relax tethered, release the
+   *  restraint, relax again from there.  That is one LAMMPS start-up rather than two and skips
+   *  the descent the free run would repeat, at the cost of asking a different question -- the
+   *  free minimum reached from the tethered structure need not be the one reached from the
+   *  as-constructed structure.  Measure the difference on the boundary at hand before trusting
+   *  it; on some landscapes it is nothing and on others it is not.
+   *
+   *  @param configFile a deformed configuration already written by box(); empty writes a scratch
+   *         copy.  Writing one evaluates the displacement field at every atom and dominates the
+   *         cost of a state, so a caller that has one should hand it over.
+   *  @param tetheredDumpFile where to leave the tethered structure, if anywhere.
+   *  @param fullDumpFile where to leave the freely relaxed structure, if anywhere. */
+  Relaxations relaxations(const std::string &lmpLocation,
+                          const std::string &potentialName,
+                          const std::string &configFile = "",
+                          const double &tetherHalfWidth = 0.0,
+                          const double &tetherStiffness = 1.0,
+                          const std::string &tetheredDumpFile = "",
+                          const std::string &fullDumpFile = "",
+                          const bool &chainRelaxations = false) const;
+
   // std::pair<double,double> densityEnergy() const;
   std::tuple<double, double>
   densityEnergy(const std::string &lmpLocation,
@@ -185,9 +231,19 @@ public:
 
   /*! This function outputs/prints a grain boundary mesostate
    * @param filename name of the file to be written to
+   * @param atomsExpelled if non-null, receives the number of atoms the deformation carried out
+   * of their own grain and which were therefore left out of both configurations.
+   * @param dropUnengagedCoincidences when true, every coincident group the state did not engage
+   * is removed entirely -- both of the atoms that met there -- so that the configuration holds
+   * exactly the coincidences the signature names and an unengaged site is empty.  This changes
+   * the structure: it leaves a vacancy where the pair was, so the atom count, the density and
+   * the relaxed structure differ from the same state built untouched, and energies from a run
+   * with this on are not comparable with energies from a run with it off.
+   * @param atomsDropped if non-null, receives how many atoms that removed.
    */
   typename std::enable_if<dim == 3, void>::type
-  box(const std::string &filename) const;
+  box(const std::string &filename, int* atomsExpelled = nullptr,
+      const bool& dropUnengagedCoincidences = false, int* atomsDropped = nullptr) const;
     };
     } // namespace oILAB
 
