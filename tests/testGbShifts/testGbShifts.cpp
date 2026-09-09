@@ -54,6 +54,9 @@ int main() {
 
     // construct gb and shifts
     Gb<3> gb(bc, rd);
+    std::cout << "GB normal = " << rd.cartesian().transpose() << std::endl;
+    double cslInterplanarSpacing= gb.bc.getReciprocalLatticeDirectionInC(rd.reciprocalLatticeVector()).planeSpacing();
+    std::cout << "CSL inter planar spacing = " << cslInterplanarSpacing << std::endl;
     ReciprocalLatticeVector<3> rAxisA(
         latticeA.reciprocalLatticeDirection(axis).reciprocalLatticeVector());
     LatticeVector<3> axisA(gb.bc.A.latticeDirection(axis).latticeVector());
@@ -67,20 +70,24 @@ int main() {
     std::cout << "length of the period vector"
               << gb.getPeriodVector(rAxisA).cartesian().norm() << std::endl;
     gbCslVectors.push_back(axisC);
-    GbShifts<3> shifts(gb, rAxisA, gbCslVectors, 1.2);
+    double latticeConstant= gb.bc.A.latticeBasis.col(0).norm();
+    double sPerpMax= 2*cslInterplanarSpacing/latticeConstant;
+    GbShifts<3> shifts(gb, rAxisA, gbCslVectors, 1.2,sPerpMax);
 
     // construct the bicrystal
     std::vector<LatticeVector<3>> cslVectors;
     cslVectors.push_back(5 * basis[0].latticeVector());
     cslVectors.push_back(4 * gbCslVectors[0]);
     cslVectors.push_back(4 * gbCslVectors[1]);
-    auto points = gb.bc.box(cslVectors, 0.5, 1);
-    gb.box(cslVectors, 1, 1, "ex.txt");
+    gb.bc.updateBoxVectors(cslVectors,0.5);
+    auto points = gb.bc.box(cslVectors, 1);
+    gb.bc.updateBoxVectors(cslVectors,1.0);
+    gb.box(cslVectors, 1, "ex.txt");
 
     std::ofstream config;
 
     int count = 0;
-    for (const auto &pair : shifts.bShiftPairs) {
+    for (const auto &pair : shifts.tShiftPairs) {
       std::string filename = "translate" + std::to_string(count) + ".txt";
       config.open(filename);
       config << points.size() << std::endl;

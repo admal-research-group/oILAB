@@ -1,0 +1,192 @@
+================================================================================
+ A TREE OVER GB SHAPES: STRATEGY FOR ENUMERATING NON-FLAT BOUNDARY MESOSTATES
+================================================================================
+ Recorded 2026-09-07.  Context: the sigma5 [001](-2 1 0) Cu sweep in
+ examples/GbFacetMeshing, at the point where the engagement label was found to
+ describe the enumeration rather than the boundary and was relabelled.
+
+
+--------------------------------------------------------------------------------
+1.  THE PROPOSAL
+--------------------------------------------------------------------------------
+
+Choose a GB *shape* first, by picking points in the volume around the boundary.
+For that shape, find the coincidence points that lie on it -- a bunch of leaves
+on a branch.  The engagement pattern of those points then gives the states
+belonging to that shape, and to that shape alone.
+
+Explore the shapes as a tree:
+
+    depth 0   the flat boundary; enumerate all of its states
+    depth 1   pick one point away from the flat surface, making a tetrahedron;
+              the collection of such point choices is the first branch, each
+              with its own leaves
+    depth 2   take those tetrahedra and pick another point away from each,
+              and so on
+
+The state count blows up with depth, so restrict the search to points that
+lead to the formation of low index planes.
+
+
+--------------------------------------------------------------------------------
+2.  WHY THE CORE MOVE IS RIGHT
+--------------------------------------------------------------------------------
+
+As the code stands, the engaged nodes *determine* the shape: the faceted
+surface is triangulated through the coincidence points, so shape and engagement
+are one variable.  The enumeration therefore cannot distinguish
+
+    same shape, different engagement       from       different shape
+
+and every question about faceting is entangled with a question about which
+sites are used.  Separating the two is the correct factorization, and doing it
+incrementally -- flat, then one point off-plane, then two -- is well posed.
+
+The ordering is also a good curriculum, because it is monotone in a physical
+parameter (corrugation) and can be stopped at any depth with a complete
+statement: "all mesostates with up to N off-plane nodes".  That is a
+publishable claim in a way that "all mesostates we happened to reach" is not.
+
+
+--------------------------------------------------------------------------------
+3.  THREE THINGS THAT WILL BITE, IN ORDER OF SEVERITY
+--------------------------------------------------------------------------------
+
+3.1  "STATES BELONGING TO THAT SHAPE ALONE" IS FALSE UNLESS ENFORCED
+     ---------------------------------------------------------------
+
+This is the relabelling bug wearing a different hat, and it sits at the root of
+the tree.
+
+Adding one off-plane point makes the shapes *nested*, not disjoint: the flat
+shape is the degenerate case of the tetrahedron with zero off-plane
+displacement.  Worse, the displacement field cannot be aimed at the engaged
+nodes alone -- wherever it happens to close the gap between two other atoms of
+the two grains, those meet as well -- so a "tetrahedron" state can realise
+exactly the flat state's coincidence set and be the same boundary under another
+name.  The code already knows this shape of problem; the maxEngaged directory
+comment notes that "a limit of 4 contains everything a limit of 3 does".
+
+Measured on the flat sweep, the fraction of states realising more coincidences
+than they engaged:
+
+        engaged   sampled   realised more   largest excess
+           1         24       18  (75%)          +4
+           2         60       17  (28%)          +3
+           3         60        5  ( 8%)          +2
+           4         60        2  ( 3%)          +1
+         5..18       60        0                  --
+
+Rare overall, but overwhelming at exactly the depth the tree starts from.
+
+THE FIX that makes the levels genuinely disjoint is the predicate now in
+countCoincidences(): at depth d, keep only states in which every off-plane node
+is engaged AND realises a coincidence.  Without it, whole subtrees are spent
+re-deriving the parent's states.
+
+
+3.2  SYMMETRY CANONICALIZATION IS WORTH MORE THAN THE LOW-INDEX FILTER
+     -----------------------------------------------------------------
+
+The flat sweep's symmetry families run to 24 identical copies (the `copies`
+column of the level-2 rank-1 state), and its 24 singly-engaged states collapse
+to 14 distinct relaxed structures.  Those factors MULTIPLY down the tree: an
+uncanonicalized frontier carries every symmetry image of every shape and
+expands each one separately.
+
+Canonicalize each point set under the CSL point group together with the
+in-plane translations before it enters the frontier, and deduplicate on that
+canonical form.  This is the highest-value addition and belongs BEFORE the
+low-index filter, because it prunes the frontier rather than the leaves.
+
+
+3.3  THE LOW-INDEX RESTRICTION NEEDS TWO CORRECTIONS
+     -----------------------------------------------
+
+Right instinct -- low-index facets are what real faceted boundaries are made
+of -- but:
+
+  (a) A facet's plane is set by a TRIPLE of nodes, not by the new point.  The
+      criterion is therefore a constraint on the point relative to its
+      triangulation neighbours, which is good news: that is incrementally
+      checkable, exactly as the tree wants.  But how many triangles a new node
+      creates depends on the in-plane triangulation, so "pick a point and get a
+      tetrahedron" only holds where that node has exactly three neighbours; in
+      general it is a cone over however many triangles surround it.  The facet
+      count per step is a property of the mesh, not of the point.
+
+  (b) MORE IMPORTANT: a plane that is low index in grain A is generally high
+      index in grain B, because the grains are misoriented.  Screening on one
+      lattice admits facets that are implausible in the other.  Screen on the
+      CSL indices, or require low index in both lattices.
+
+
+--------------------------------------------------------------------------------
+4.  HOW THE COMBINATORICS PAN OUT
+--------------------------------------------------------------------------------
+
+Shapes at depth d go like C(P, d), with P the number of admissible off-plane
+points per cell, times the engagement enumeration on each shape's own site set.
+The flat run fixes the scale of that second factor: 24 candidate sites gave
+921599 clash-free states.  So the cost is
+
+        C(P, d)  x  (states per shape)
+
+and P is the one number that decides whether depth 3 is reachable.
+
+  ==> MEASURE P FIRST, before building any of this: count the admissible
+      off-plane points in the intended slab at the intended dMax and
+      minSiteSeparation.
+
+      P a few dozen  -> depth 2 comfortable, depth 3 needs the symmetry quotient
+      P in hundreds  -> depth 2 already needs symmetry AND a beam
+
+
+--------------------------------------------------------------------------------
+5.  RECOMMENDATION: EXHAUSTIVE TO DEPTH 2, BEAM BEYOND
+--------------------------------------------------------------------------------
+
+Make the deep levels a beam search rather than an exhaustive walk: keep the
+best B canonical shapes by energy at each depth and expand only those.  GB
+energy is roughly additive over facets plus junction terms, so a shape whose
+sub-shape is already poor rarely becomes good.  Not rigorous -- the failure
+mode is a bad intermediate that turns good -- but that is cheap to hedge with a
+wider beam near the root and a few random restarts.
+
+Drawing the line at depth 2 keeps the exact claim ("all mesostates with up to
+two off-plane nodes") while treating the deeper levels honestly as a search
+rather than an enumeration.
+
+
+--------------------------------------------------------------------------------
+6.  ONE PIECE IS SMALLER THAN IT LOOKS
+--------------------------------------------------------------------------------
+
+"Find the coincidence points on that shape" is a restriction of machinery that
+already exists.  The Sites search takes candidates from a slab about the flat
+plane via slabHalfThickness in include/Lattices/GbShifts.h; what is needed is
+that same predicate with distance-to-slab swapped for distance-to-surface.
+
+Be precise about the object, though: those candidates are (xA, xB, uA, uB)
+pairs that the field BRINGS together within dMax -- not CSL points that
+coincide on their own.  The leaves of a branch are the former, which is both
+the right thing for the mesostate machinery and a larger set than the latter.
+
+
+--------------------------------------------------------------------------------
+7.  A RESIDUAL PROBLEM NO LABELLING SCHEME CAN FIX
+--------------------------------------------------------------------------------
+
+Relabelling by realised coincidences describes the DEFORMED structure honestly,
+but distinct deformed structures can relax onto one minimum.  In the flat run's
+24 singly-engaged states there are only 14 distinct relaxed structures, and the
+ground state at 7.36761356 eV is reached by 11 of them carrying two different
+realised labels (4 and 5).  States 004 and 019 genuinely differ before
+relaxation -- 004 has a 4-atom coincidence site, 019 a 3-atom site plus an
+extra pair -- and still relax together.
+
+The only remedy is a structural deduplication on the minimized structures,
+canonicalized under the CSL symmetry and the in-plane translations.  Whatever
+the tree does about shapes, it will need this at the leaves.
+
+================================================================================

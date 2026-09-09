@@ -12,10 +12,7 @@ using namespace oILAB;
 
 int main() {
   /*! [Types] */
-  using VectorDimI = LatticeCore<3>::VectorDimI;
   using VectorDimD = LatticeCore<3>::VectorDimD;
-  using Vector2d = Eigen::Vector2d;
-  using IntScalarType = LatticeCore<3>::IntScalarType;
   /*! [Types] */
 
   /*
@@ -26,7 +23,7 @@ int main() {
   int heightScaling= 1;
   int periodScaling= 1;
   int axisScaling= 1;
-  double bScaling= 0.75;
+  double tMax= 0.75;
    */
 
   /*
@@ -37,7 +34,7 @@ int main() {
   int heightScaling= 1;
   int periodScaling= 1;
   int axisScaling= 1;
-  double bScaling= 0.75;
+  double tMax= 0.75;
    */
 
   // Sigma 123 [110](-5 5 14)
@@ -48,7 +45,8 @@ int main() {
   int heightScaling = 2;
   int periodScaling = 1;
   int axisScaling = 1;
-  double bScaling = 0.6;
+  double tMax = 0.55;
+  double sPerpMax = 1.1;
 
   // Sigma 3
   /*
@@ -60,7 +58,7 @@ int main() {
   int heightScaling= 4;
   int periodScaling= 1;
   int axisScaling= 1;
-  double bScaling= 0.99;
+  double tMax= 0.99;
    */
 
   /*
@@ -71,7 +69,7 @@ int main() {
   int heightScaling= 2;
   int periodScaling= 1;
   int axisScaling= 1;
-  double bScaling= 0.99;
+  double tMax= 0.99;
   */
 
   /*! [Lattice] */
@@ -107,46 +105,30 @@ int main() {
     Gb<3> gb(bc, rd);
 
     // Define the CSL box vectors
-    ReciprocalLatticeVector<3> rAxisA(
-        latticeA.reciprocalLatticeDirection(axis).reciprocalLatticeVector());
-    std::cout << gb.getPeriodVector(rAxisA).cartesian().transpose()
-              << std::endl;
+    ReciprocalLatticeVector<3> rAxisA(latticeA.reciprocalLatticeDirection(axis).reciprocalLatticeVector());
+    std::cout << gb.getPeriodVector(rAxisA).cartesian().transpose() << std::endl;
     LatticeVector<3> axisA(gb.bc.A.latticeDirection(axis).latticeVector());
     LatticeVector<3> axisC(gb.bc.getLatticeDirectionInC(axisA).latticeVector());
     std::vector<LatticeVector<3>> cslVectors;
-    cslVectors.push_back(
-        heightScaling *
-        gb.bc.csl.latticeDirection(gb.nA.cartesian()).latticeVector());
+    cslVectors.push_back(heightScaling * gb.bc.csl.latticeDirection(gb.nA.cartesian()).latticeVector());
     cslVectors.push_back(periodScaling * gb.getPeriodVector(rAxisA));
     cslVectors.push_back(axisScaling * axisC);
-    gb.box(cslVectors, 1, 1, "gb.txt", true);
-    bc.box(cslVectors, 1, 1, "bcOriented.txt", true);
+    gb.box(cslVectors, 0, "gb.txt", false);
+    bc.box(cslVectors, 0, "bcOriented.txt", false);
 
-    // material parameter
-    // source:
-    // https://openkim.org/id/EAM_Dynamo_MishinMehlPapaconstantopoulos_2001_Cu__MO_346334655118_005
-    double c11 = 169.9281940954852 / 160.2176621;
-    double c12 = 122.65063014404001 / 160.2176621;
-    GbMaterialTensors::lambda = c12;
-    GbMaterialTensors::mu = (c11 - c12) / 2;
 
-    GbMesoStateEnsemble<3> ensemble(gb, rAxisA, cslVectors, bScaling);
-    std::deque<XTuplet> constraintsEnsemble(
-        ensemble.enumerateConstraints((const GbShifts<3> &)ensemble));
-    std::cout << "Size of the ensemble = " << constraintsEnsemble.size()
-              << std::endl;
+    GbMesoStateEnsemble<3> ensemble(gb, rAxisA, cslVectors, tMax, sPerpMax);
+    std::deque<XTuplet> constraintsEnsemble(ensemble.enumerateConstraints(ensemble.tShiftPairs.size()));
+    std::cout << "Size of the ensemble = " << constraintsEnsemble.size() << std::endl;
 
     std::ofstream out_file;
 
 #pragma omp parallel for num_threads(1) private(out_file)
     for (size_t i = 0; i < constraintsEnsemble.size(); ++i) {
-      if (i != 2000)
-        continue;
       int thread_id = omp_get_thread_num();
 
       // Create a filename for each thread
-      std::string filename =
-          "output_thread_" + std::to_string(thread_id) + ".txt";
+      std::string filename = "output_thread_" + std::to_string(thread_id) + ".txt";
 
       // Open the file once per thread (if not already open)
       if (!out_file.is_open())
@@ -155,56 +137,23 @@ int main() {
       const auto &it = std::next(constraintsEnsemble.begin(), i);
       try {
         const auto &mesostate = ensemble.constructMesoState(*it);
-        /*
-        std::cout << *it << std::endl;
-        auto n= mesostate.b[0].values.dimensions();
+          exit(0);
 
-
-        auto alpha= mesostate.get_alpha();
-        auto b= mesostate.get_b();
-
-        std::ofstream bStream("b.txt");
-        bStream << b[2] << std::endl;
-        bStream.close();
-
-        std::ofstream alphaStream("alpha31.txt");
-        alphaStream << alpha[4] << std::endl;
-        alphaStream.close();
-        alphaStream.open("alpha32.txt");
-        alphaStream << alpha[5] << std::endl;
-        alphaStream.close();
-
-        std::ofstream dStream("displacement.txt");
-        for (int in = 0; in < n[0]; in++) {
-            for (int jn = 0; jn < n[1]; jn++) {
-                Eigen::Vector<double, 3> x =
-                        in * mesostate.b[0].unitCell.col(0) / n[0] + jn *
-        mesostate.b[0].unitCell.col(1) / n[1]; x(2)=-1e-5;
-
-                dStream << x.transpose() << ",  "
-                        << mesostate.displacement(x)(2) << std::endl;
-            }
-        }
-        exit(0);
-        */
-        // mesostate.box(std::to_string(i)+ ".txt");
+        // I am stopping it here as currently the constructed configuration files are empty
+          /*
         std::string potentialName = "Cu_mishin1.eam.alloy";
         std::string lmpLocation = "/Users/Nikhil/Documents/Academic/Software/"
                                   "lammps-15May15/src/lmp_serial";
 
-        const auto data = mesostate.densityEnergy(lmpLocation, potentialName,
-                                                  true, {10, 10, 10});
-        PeriodicFunction<double, 3> rho = std::get<2>(data);
-        // the density values can be read using rho.values
+        const auto data = mesostate.densityEnergy(lmpLocation, potentialName);
 
         if (out_file.is_open())
-          // out_file << *it << "  " << it->density() << "  " << data.second <<
-          // std::endl;
-          out_file << *it << "  " << std::get<0>(data) << "  "
-                   << std::get<1>(data) << std::endl;
+          out_file << *it << "  " << std::get<0>(data) << "  " << std::get<1>(data) << std::endl;
         else
           std::cerr << "Failed to open file " << filename << std::endl;
-      } catch (std::runtime_error &e) {
+      */
+      }
+      catch (std::runtime_error &e) {
         std::cout << e.what() << std::endl;
       }
     }

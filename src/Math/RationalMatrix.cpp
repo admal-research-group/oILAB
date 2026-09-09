@@ -7,6 +7,7 @@
 #ifndef gbLAB_RationalMatrix_cpp_
 #define gbLAB_RationalMatrix_cpp_
 
+#include <cassert>
 #include "../../include/Math/RationalMatrix.h"
 #include "../../include/Math/BestRationalApproximation.h"
 #include "../../include/Math/IntegerMath.h"

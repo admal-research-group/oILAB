@@ -4,6 +4,7 @@
 #ifndef OILAB_CANONICALTPIMPLEMENTATION_H
 #define OILAB_CANONICALTPIMPLEMENTATION_H
 
+#include <cassert>
 #include <algorithm>
 #include "../Lattices/OrderedTuplet.h"
 

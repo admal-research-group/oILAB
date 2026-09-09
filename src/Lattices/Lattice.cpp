@@ -7,6 +7,7 @@
 #ifndef gbLAB_Lattice_cpp_
 #define gbLAB_Lattice_cpp_
 
+#include <cassert>
 #include <Eigen/Eigenvalues>
 
 #include "../../include/Lattices/LatticeModule.h"

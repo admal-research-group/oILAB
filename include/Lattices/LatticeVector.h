@@ -6,6 +6,7 @@
 #ifndef gbLAB_LatticeVector_h_
 #define gbLAB_LatticeVector_h_
 
+#include <cassert>
 #include "LatticeModule.h"
 
 namespace oILAB {

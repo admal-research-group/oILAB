@@ -121,7 +121,7 @@ public:
   template <int dm = dim>
   typename std::enable_if<dm == 2 || dm == 3,
                           std::vector<LatticeVector<dim>>>::type
-  box(std::vector<LatticeVector<dim>> &boxVectors, const double &orthogonality,
+  box(const std::vector<LatticeVector<dim>> &boxVectors,
       const int &dsclFactor, std::string filename = "",
       bool orient = false) const;
 

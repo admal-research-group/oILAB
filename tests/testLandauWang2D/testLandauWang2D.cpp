@@ -102,7 +102,7 @@ int main() {
     cslVectors.push_back(periodScaling * gb.getPeriodVector(rAxisA));
     cslVectors.push_back(axisScaling * axisC);
 
-    gb.box(cslVectors, 1, 1, "gb.txt");
+    gb.box(cslVectors, 1, "gb.txt");
     /*
      *  c11 = 1.0439923926128656 eV/angstrom^3
         c12 = 0.7750032094485771 eV/angstrom^3

@@ -7,6 +7,7 @@
 #ifndef gbLAB_RLLL_cpp_
 #define gbLAB_RLLL_cpp_
 
+#include <cassert>
 #include "../../include/Math/RLLL.h"
 #include <vector>
 

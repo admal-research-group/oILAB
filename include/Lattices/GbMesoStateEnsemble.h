@@ -8,7 +8,6 @@
 #include "GbShifts.h"
 #include <deque>
 #include "GbMesoState.h"
-#include "GbContinuum.h"
 #include "../MonteCarlo/Ensemble.h"
 
 namespace oILAB {
@@ -17,79 +16,72 @@ namespace oILAB {
  *
  */
 template <int dim>
-class GbMesoStateEnsemble
-    : public GbShifts<dim>,
-      public Ensemble<XTuplet, GbMesoState<dim>, GbMesoStateEnsemble<dim>> {
-  using VectorDimD = typename LatticeCore<dim>::VectorDimD;
-  using BicrystalLatticeVectors = std::vector<LatticeVector<dim>>;
-  // using Constraints= Eigen::Tensor<int,dim>;
-  using Constraints = XTuplet;
+class GbMesoStateEnsemble : public GbShifts<dim>,
+                            public Ensemble<XTuplet,GbMesoState<dim>, GbMesoStateEnsemble<dim>> {
+    using VectorDimD = typename LatticeCore<dim>::VectorDimD;
+    using BicrystalLatticeVectors = std::vector<LatticeVector<dim>>;
+    using Constraints = XTuplet;
 
-  /*!
-   * \brief Constructs \p bicrystalConfig and \p ensembleCslVectors
-   * @param gbs - a const reference to GBShifts<dim> object
-   * @param ensembleCslVectors (output) - the CSL vectors of the ensemble's
-   * grain boundary
-   * @param scales - an integer array (of size=\p dim) representing the scaling
-   * of the mesostate ensemble
-   * @return Lattice vectors of lattices \f$\mathcal A\f$ and \f$\mathcal B\f$
-   * in the ensemble's bicrystal
-   */
-  static BicrystalLatticeVectors
-  getBicrystalConfig(const GbShifts<dim> &gbs,
-                     std::vector<LatticeVector<dim>> &ensembleCslVectors);
-  // const Eigen::Vector<int,dim>& scales);
+    /*! The coincidence nodes a signature engages. Used when the ensemble was built with
+     * \p GbShiftSearch::Sites, where a state is a set of nodes rather than of (t,s) pairs. */
+    static std::deque<GbNode<dim>> getEngagedNodes(
+        const std::vector<GbNode<dim>>& nodes,
+        const Constraints& constraints);
 
-  static std::deque<std::tuple<LatticeVector<dim>, VectorDimD, int>>
-  bsPairsFromConstraints(
-      const std::vector<std::pair<LatticeVector<dim>, VectorDimD>> &bShiftPairs,
-      const Constraints &constraints);
+    static std::deque<std::pair<LatticeVector<dim>, VectorDimD>> getEngagedTsPairs(
+        const std::vector<std::pair<LatticeVector<dim>,VectorDimD>> &bShiftPairs,
+        const Constraints &constraints);
 
 public:
-  /*!
-   * CSL vectors that define the ensemble's grain boundary region
-   */
-  std::vector<LatticeVector<dim>> ensembleCslVectors;
+    /*!
+    * CSL vectors that define the ensemble's grain boundary region
+    */
+    std::vector<LatticeVector<dim>> ensembleCslVectors;
 
-  /*!
-   * A vector of lattice vectors in the ensemble's bicrystal.
-   */
-  BicrystalLatticeVectors bicrystalConfig;
-
-  GbMesoStateEnsemble(const Gb<dim> &gb,
+    /*! @param search \p GbShiftSearch::Flat (default) keeps the original enumeration; \p Full
+     *         also admits translations whose CSL shift leaves the boundary plane, which is what
+     *         makes non-flat mesostates reachable.  The remaining arguments are forwarded to
+     *         GbShifts and ignored unless \p search is \p Full.
+     */
+    GbMesoStateEnsemble(const Gb<dim> &gb,
                       const ReciprocalLatticeVector<dim> &axis,
                       std::vector<LatticeVector<dim>> &ensembleCslVectors,
-                      const double &bhalfMax);
+                      const double &tMax=1,
+                      const double& sPerpMax=1,
+                      const GbShiftSearch& search= GbShiftSearch::Flat,
+                      const double& tPerpMax= 1.0e300,
+                      const bool& oneTranslationPerSite= false,
+                      const std::string& filename= "translationsNonFlat.txt",
+                      const double& slabHalfThickness= 1.0,
+                      const double& dMax= 1.5,
+                      const bool& dropInvertedNodes= true,
+                      const bool& dropZeroJumpNodes= true);
 
-  /*!
-   * \brief Constructs an ensemble of mesostates
-   * @param filename-
-   * @return A deque of mesostates
-   */
-  std::map<Constraints, GbMesoState<dim>>
-  collectMesoStates(const std::string &filename = "") const;
+    /*!
+    * \brief Constructs an ensemble of mesostates
+    * @param filename-
+    * @return A deque of mesostates
+    */
+    std::map<Constraints, GbMesoState<dim>>
+    collectMesoStates(const std::string &filename = "") const;
 
-  static std::deque<Constraints> enumerateConstraints(const GbShifts<dim> &gbs);
+    static std::deque<Constraints> enumerateConstraints(const int& size);
 
-  /*!
-   * \brief Evove mesostates using a Monte Carlo algorithm
-   * @param filename-
-   * @return A deque of mesostates
-   */
-  // std::map<Constraints,GbMesoState<dim>> evolveMesoStates(const double&
-  // temperature, const int& resetEvery, const int& maxIterations, const
-  // std::string& filename="") const;
+    /*!
+    * \brief Evove mesostates using a Monte Carlo algorithm
+    * @param filename-
+    * @return A deque of mesostates
+    */
+    GbMesoState<dim> constructMesoState(const Constraints &constraints) const;
 
-  GbMesoState<dim> constructMesoState(const Constraints &constraints) const;
-
-  Constraints sampleNewState(const Constraints &currentConstraints,
+    Constraints sampleNewState(const Constraints &currentConstraints,
                              const bool &randomize = false) const;
 
-  Constraints initializeState() const;
+    Constraints initializeState() const;
 
-    };
+};
 
-    } // namespace oILAB
+} // namespace oILAB
 
 #include "GbMesoStateEnsembleImplementation.h"
 #endif //OILAB_GBMESOSTATES_H

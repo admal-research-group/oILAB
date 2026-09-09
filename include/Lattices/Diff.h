@@ -5,6 +5,7 @@
 #ifndef OILAB_DIFF_H
 #define OILAB_DIFF_H
 
+#include <cassert>
 #include "Operator.h"
 #include "LatticeModule.h"
 #include <unsupported/Eigen/CXX11/Tensor>

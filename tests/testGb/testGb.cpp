@@ -66,7 +66,8 @@ int main() {
     std::vector<LatticeVector<2>> boxVectors;
     boxVectors.push_back(planeParallelBasis[0].latticeVector());
     boxVectors.push_back(planeParallelBasis[1].latticeVector());
-    gb.box(boxVectors, 0.9, 1, "gb.txt", true);
+    gb.bc.updateBoxVectors(boxVectors,0.9);
+    gb.box(boxVectors, 1, "gb.txt", true);
 
   } catch (std::runtime_error &e) {
     std::cout << e.what() << std::endl;

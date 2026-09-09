@@ -86,7 +86,7 @@ for i, rotation in enumerate(rotations):
             bcslv2 = csl.latticeDirection(bcslv1.cross().cartesian()).latticeVector()
             # box vector orthogonal to bcslv1 and bcslv2
             bcslv3 = csl.latticeDirection(bcslv1.cross(bcslv2).cartesian()).latticeVector()
-            config = bicrystal.box([bcslv1,bcslv2,bcslv3],1,1,"bc"+str(i))
+            config = bicrystal.box([bcslv1,bcslv2,bcslv3],1,"bc"+str(i))
     except Exception as e:
         print(f"Caught an exception: {e}")
 

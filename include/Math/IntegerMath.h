@@ -13,6 +13,7 @@
 #include <iostream>
 #include <algorithm>
 #include <deque>
+#include <cassert>
 
 namespace oILAB {
 template <typename IntScalarType> struct IntegerMath {
@@ -409,13 +410,13 @@ template <typename IntScalarType> struct IntegerMath {
             {
                 // remove i-th row
                 Eigen::Matrix<IntScalarType,dim-1,dim> temp1 ;
-                temp1 << input(Eigen::seq(0,i-1),Eigen::all),
-                         input(Eigen::seq(i+1,dim-1),Eigen::all);
+                temp1 << input(Eigen::seq(0,i-1),Eigen::placeholders::all),
+                         input(Eigen::seq(i+1,dim-1),Eigen::placeholders::all);
                 for (int j=0; j<dim; j++)
                 {
                     // remove jth column
                     Eigen::Matrix<IntScalarType,dim-1,dim-1> temp2 ;
-                    temp2 << temp1(Eigen::all,Eigen::seq(0,j-1)), temp1(Eigen::all,Eigen::seq(j+1,dim-1));
+                    temp2 << temp1(Eigen::placeholders::all,Eigen::seq(0,j-1)), temp1(Eigen::placeholders::all,Eigen::seq(j+1,dim-1));
 
                     output(i,j)=(IntScalarType) std::pow(-1,i+j+2)*temp2.template cast<double>().determinant();
                 }

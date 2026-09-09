@@ -7,6 +7,7 @@
 #ifndef gbLAB_BiCrystal_cpp_
 #define gbLAB_BiCrystal_cpp_
 
+#include <cassert>
 #include "../../include/Lattices/LatticeModule.h"
 #include <numbers>
 
@@ -516,31 +517,18 @@ BiCrystal<dim>::getM(const RationalMatrix<dim> &rm,
     }
 
     template<int dim> template<int dm>
-    typename std::enable_if<dm==2 || dm==3,std::vector<LatticeVector<dim>>>::type
-    BiCrystal<dim>::box(std::vector<LatticeVector<dim>>& boxVectors,
-                        const double& orthogonality,
-                        const int& dsclFactor,
-                        std::string filename,
-                        bool orient) const
+    typename std::enable_if<dm==2 || dm==3,void>::type
+    BiCrystal<dim>::updateBoxVectors(std::vector<LatticeVector<dim>>& boxVectors,
+                                          const double& orthogonality) const
     {
         assert(orthogonality>=0.0 && orthogonality<=1.0 &&
-               "The \"orthogonality\" parameter should be between 0.0 and 1.0");
-        assert(dsclFactor>=1 &&
-               "The \"dsclFactor\" should be greater than 1.");
+           "The \"orthogonality\" parameter should be between 0.0 and 1.0");
         assert(boxVectors.size()==dim);
         for(const auto& boxVector : boxVectors)
         {
             assert(&csl == &boxVector.lattice &&
                    "Box vectors do not belong to the CSL.");
         }
-
-        // Form the box lattice
-        MatrixDimD C;
-        for (int i=0; i<dim; ++i) {
-            C.col(i) = boxVectors[i].cartesian();
-        }
-        assert(abs(C.determinant()) > FLT_EPSILON && "Box volume is equal to zero.");
-
 
         // Adjust boxVector[0] such that it is as orthogonal as possible to boxVector[1]
         auto boxVectorTemp= boxVectors[0];
@@ -582,8 +570,37 @@ BiCrystal<dim>::getM(const RationalMatrix<dim> &rm,
 
         }
         boxVectors[0]=boxVectorUpdated;
-        C.col(0)= boxVectors[0].cartesian();
+    }
 
+    template<int dim> template<int dm>
+    typename std::enable_if<dm==2 || dm==3,std::vector<LatticeVector<dim>>>::type
+    BiCrystal<dim>::box(const std::vector<LatticeVector<dim>>& boxVectors,
+                        const int& dsclFactor,
+                        std::string filename,
+                        bool orient) const
+    {
+        assert(dsclFactor>=0 &&
+               "The \"dsclFactor\" should be non-negative integer.");
+        assert(boxVectors.size()==dim);
+        for(const auto& boxVector : boxVectors)
+        {
+            assert(&csl == &boxVector.lattice &&
+                   "Box vectors do not belong to the CSL.");
+        }
+
+        // Form the box lattice
+        MatrixDimD C;
+        for (int i=0; i<dim; ++i) {
+            C.col(i) = boxVectors[i].cartesian();
+        }
+        assert(abs(C.determinant()) > FLT_EPSILON && "Box volume is equal to zero.");
+
+
+        ReciprocalLatticeDirection<dim> nC(csl);
+        if (dim==2)
+            nC= boxVectors[1].cross();
+        if (dim==3)
+            nC= boxVectors[1].cross(boxVectors[2]);
 
         // form the rotation matrix used to orient the system
         MatrixDimD rotation= Eigen::Matrix<double,dim,dim>::Identity();;
@@ -618,7 +635,7 @@ BiCrystal<dim>::getM(const RationalMatrix<dim> &rm,
         // prepare boxVectors for D
         auto dsclVector=getLatticeDirectionInD(boxVectors[0]).latticeVector();
         auto nD= getReciprocalLatticeDirectionInD(nC.reciprocalLatticeVector());
-        if(abs((dsclFactor*dsclVector).dot(nD)) < abs(boxVectorsInD[0].dot(nD)))
+        if(dsclFactor!=0 && abs((dsclFactor*dsclVector).dot(nD)) < abs(boxVectorsInD[0].dot(nD)))
             boxVectorsInD[0]= dsclFactor*dsclVector;
 
         std::vector<LatticeVector<dim>> boxVectorsForA(boxVectorsInA),
@@ -633,7 +650,8 @@ BiCrystal<dim>::getM(const RationalMatrix<dim> &rm,
         configurationA= A.box(boxVectorsForA);
         configurationB= B.box(boxVectorsForB);
         configurationC= csl.box(boxVectorsForC);
-        configurationD= dscl.box(boxVectorsForD);
+        if (dsclFactor!=0)
+            configurationD= dscl.box(boxVectorsForD);
 
         LatticeVector<dim> origin(-1*boxVectors[0]);
         for(auto& vector : configurationA)
@@ -700,17 +718,21 @@ BiCrystal<dim>::getM(const RationalMatrix<dim> &rm,
     template std::map<BiCrystal<2>::IntScalarType, Gb<2>>
         BiCrystal<2>::generateGrainBoundaries<2>(const LatticeDirection<2> &d, int div) const;
     template std::vector<LatticeVector<2>>
-            BiCrystal<2>::box<2>(std::vector<LatticeVector<2>> &boxVectors,
-                                 const double &orthogonality, const int &dsclFactor,
+            BiCrystal<2>::box<2>(const std::vector<LatticeVector<2>> &boxVectors,
+                                 const int &dsclFactor,
                                  std::string filename, bool orient) const;
+    template void BiCrystal<2>::updateBoxVectors<2>(std::vector<LatticeVector<2>>& boxVectors,
+                                                   const double& orthogonality) const;
 
     template class BiCrystal<3>;
     template std::map<BiCrystal<3>::IntScalarType, Gb<3>>
         BiCrystal<3>::generateGrainBoundaries<3>(const LatticeDirection<3> &d, int div) const;
     template std::vector<LatticeVector<3>>
-    BiCrystal<3>::box<3>(std::vector<LatticeVector<3>> &boxVectors,
-                         const double &orthogonality, const int &dsclFactor,
+    BiCrystal<3>::box<3>(const std::vector<LatticeVector<3>> &boxVectors,
+                         const int &dsclFactor,
                          std::string filename, bool orient) const;
+    template void BiCrystal<3>::updateBoxVectors<3>(std::vector<LatticeVector<3>>& boxVectors,
+                                                   const double& orthogonality) const;
 
     template class BiCrystal<4>;
     template class BiCrystal<5>;
