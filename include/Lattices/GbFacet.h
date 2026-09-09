@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -42,6 +43,55 @@ public:
      *  lines, interleaved from every thread, and they bury whatever the run was actually
      *  reporting.  Turn it on for a single state, where the mesh is the thing being looked at. */
     static bool announceConstruction;
+
+    /*! \brief Whether the solid angles are memoised across states.
+     *
+     *  The panels the quadrature integrates over are built from the REFERENCE node positions --
+     *  only their displacements come from the state -- so every solid angle in the image sum is
+     *  pure geometry, and the field is linear in the nodal displacements.  That makes the whole
+     *  image sum for one (query point, triangle) pair reusable by any other state that puts the
+     *  same triangle at the same place, which sweeps do constantly: they draw their nodes from
+     *  one fixed pool of coincidence sites and evaluate at one fixed set of lattice positions.
+     *
+     *  Measured on sigma5 (310).  Over 1119 states, 83% of lookups hit and box() falls from 83.0
+     *  to 43.7 ms/state; over 26,879 states, 97.7% hit -- a reuse factor of 43.6 -- and box()
+     *  falls from 109.2 to 42.5 ms/state, 2.6x, for 2.3 million entries and about 350 MB.  The
+     *  reuse grows with the sweep because the pool of distinct triangles is bounded while the
+     *  number of states is not, so the bigger the run the more this returns.  The image sum is
+     *  96% of displacement(), which is why halving it halves the field.
+     *
+     *  It is exact, not an approximation: over both sweeps every state came out byte-identical
+     *  to the direct sum, all four energies included.  Set OILAB_FACET_MEMO=0 to select the
+     *  direct sum, which is what that was checked against, and OILAB_FACET_MEMO_VERIFY=1 to
+     *  recompute on every hit and report any disagreement. */
+    inline static const bool memoiseSolidAngles =
+        std::getenv("OILAB_FACET_MEMO") == nullptr
+        || std::string(std::getenv("OILAB_FACET_MEMO")) != "0";
+
+    /*! \brief Empties the solid-angle memo if the box it was filled for has changed.
+     *
+     *  Only the periods are checked here.  The quadrature settings differ between the facets of
+     *  a single mesostate -- deformedSurface uses refinement 1 -- so they sit in the memo's key
+     *  instead; resetting on them empties the table several times per state.  A no-op when
+     *  nothing has changed, and called once per facet rather than once per query. */
+    static void resetSolidAngleMemo(const Eigen::Vector3d& period1,
+                                    const Eigen::Vector3d& period2);
+
+    /*! Reports the memo's hit rate and footprint on exit.  Set OILAB_FACET_MEMO_STATS=1. */
+    inline static const bool reportMemoStatistics =
+        std::getenv("OILAB_FACET_MEMO_STATS") != nullptr;
+
+    /*! \brief What one triangle contributes to one query point, summed over every periodic image.
+     *
+     *  \p w are the coefficients of the triangle's three nodal displacements -- the field being
+     *  linear in them -- and \p omega the bare solid angle the same sum accumulates, which the
+     *  far-field closure needs so it can subtract exactly what the explicit shells covered.
+     *  Geometry only: nothing here depends on the state. */
+    struct TriangleWeights
+    {
+        std::array<double,3> w{{0.0,0.0,0.0}};
+        double omega= 0.0;
+    };
 
     /*! One corner of a triangle.  \p node indexes the point cloud, and \p o1,\p o2 are
      * periodic image offsets: the corner sits at
@@ -226,6 +276,12 @@ private:
          *  is a midpoint rule and not merely a sample. */
         Eigen::MatrixXd panelDisp;
 
+        /*! The same interpolation as \p panelDisp, but kept as the three barycentric
+         *  coefficients rather than applied.  panelDisp is what the direct sum multiplies by;
+         *  these are what the memo stores, since they are the part that does not depend on the
+         *  state.  Row \p p sums to one. */
+        Eigen::MatrixXd panelBary;
+
         /*! The unsubdivided faces, used for the distant images and for the mean displacement
          *  and net orientation, which are properties of the surface rather than of the
          *  quadrature. */
@@ -304,6 +360,13 @@ private:
                     Eigen::Vector3d& weighted,
                     double& omega,
                     const bool& subdivided) const;
+
+    /*! The image sum for one triangle at one query point, from the memo if it is there.
+     *  \p x must already be folded into the base cell. */
+    TriangleWeights triangleWeights(const Eigen::Vector3d& x, const int& face) const;
+
+    /*! The same sum, computed rather than looked up. */
+    TriangleWeights computeTriangleWeights(const Eigen::Vector3d& x, const int& face) const;
 };
 
 #endif

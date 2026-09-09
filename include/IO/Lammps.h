@@ -780,8 +780,20 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
 }
 #endif
 
+/*! As energy() below, but taking the configuration already in memory rather than a path.
+ *
+ *  This is the form the sweep uses.  The atoms were built in this process a moment earlier, so
+ *  writing them out and parsing them back was pure overhead once LAMMPS stopped needing a file;
+ *  the path-taking overload reads the file and delegates here, for callers that only have a path.
+ *
+ *  \p atoms is one row per atom -- species, x, y, z, radius -- \p configBox holds the three cell
+ *  vectors as columns and \p configOrigin the cell origin, which is what read_oILAB_output()
+ *  returns and what GbMesoState::box() now fills in directly.
+ */
 std::pair<double, double> energy(const std::string& lammpsLocation,
-                                 const std::string& oilabConfigFile,
+                                 const Eigen::MatrixXd& atoms,
+                                 const Eigen::Matrix3d& configBox,
+                                 const Eigen::Vector3d& configOrigin,
                                  const std::string& potentialFile,
                                  bool minimize = false,
                                  const std::string& minimizedDumpFile = "",
@@ -801,8 +813,9 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
     std::string lammpsDumpFile= "dump" + threadNumber + ".lammpsConfigs";
     std::string outfile = "lmp_mesostate_energies" + threadNumber + ".txt";
 
-    // Read data
-    auto [atoms, box, origin] = read_oILAB_output(oilabConfigFile);
+    const Eigen::Matrix3d& box= configBox;
+    const Eigen::Vector3d& origin= configOrigin;
+    (void)origin;
 
     // Find rotation and new box
     Eigen::Matrix3d R= box.transpose();
@@ -886,6 +899,31 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
         else *freeEnergy= data_energy[0].size()>6 ? data_energy[0][6] : 0.0;
     }
     return {data_energy[0][3], data_energy[0][2]};
+}
+
+/*! Reads an oILAB configuration file and hands it to the overload above.
+ *
+ *  Kept for callers that have a path rather than the atoms.  The sweep does not go through here
+ *  any more: it passes the configuration GbMesoState::box() built, which saves writing the file
+ *  and parsing it back. */
+inline std::pair<double, double> energy(const std::string& lammpsLocation,
+                                        const std::string& oilabConfigFile,
+                                        const std::string& potentialFile,
+                                        bool minimize = false,
+                                        const std::string& minimizedDumpFile = "",
+                                        double tetherHalfWidth = 0.0,
+                                        double tetherStiffness = 1.0,
+                                        double* springEnergy = nullptr,
+                                        double* unminimizedEnergy = nullptr,
+                                        bool chainFreeMinimization = false,
+                                        const std::string& freeDumpFile = "",
+                                        double* freeEnergy = nullptr,
+                                        bool bothRelaxations = false)
+{
+    const auto [atoms, box, origin] = read_oILAB_output(oilabConfigFile);
+    return energy(lammpsLocation, atoms, box, origin, potentialFile, minimize, minimizedDumpFile,
+                  tetherHalfWidth, tetherStiffness, springEnergy, unminimizedEnergy,
+                  chainFreeMinimization, freeDumpFile, freeEnergy, bothRelaxations);
 }
 
 #endif //OILAB_LAMMPS_H

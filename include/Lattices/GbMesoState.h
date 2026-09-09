@@ -178,6 +178,22 @@ public:
    *  this state leads to cost", by letting them go.  The two are different questions and a
    *  faceting study wants both, so both are reported, together with the energy before either
    *  relaxation. */
+  /*! \brief A mesostate's atoms in memory, laid out exactly as read_oILAB_output() returns
+   *  them: \p atoms one row per atom -- species, x, y, z, radius -- \p box holding the three
+   *  cell vectors as its columns, and \p origin the cell origin.
+   *
+   *  box() used to hand its result on only as a file, which the coincidence count then re-read
+   *  and LAMMPS read again.  LAMMPS takes its atoms in memory now, so the file is needed only
+   *  when a state is being kept to look at, and a survey pass can skip writing it entirely --
+   *  measured at 23% of box().  Matching the reader's layout means nothing downstream has to
+   *  care which way the atoms arrived. */
+  struct Configuration
+  {
+    Eigen::MatrixXd atoms;
+    Eigen::Matrix3d box;
+    Eigen::Vector3d origin;
+  };
+
   struct Relaxations
   {
     double density   = 0.0;   //!< atoms in the boundary region; the same for both relaxations,
@@ -217,6 +233,18 @@ public:
                           const std::string &fullDumpFile = "",
                           const bool &chainRelaxations = false) const;
 
+  /*! As above, from a configuration already in memory -- what box() hands back when it is asked
+   *  for one.  This is the form the sweep uses; the overload above reads a file and delegates
+   *  here, and exists for callers that still have only a path. */
+  Relaxations relaxations(const std::string &lmpLocation,
+                          const std::string &potentialName,
+                          const Configuration &configuration,
+                          const double &tetherHalfWidth,
+                          const double &tetherStiffness,
+                          const std::string &tetheredDumpFile,
+                          const std::string &fullDumpFile,
+                          const bool &chainRelaxations) const;
+
   // std::pair<double,double> densityEnergy() const;
   std::tuple<double, double>
   densityEnergy(const std::string &lmpLocation,
@@ -242,8 +270,15 @@ public:
    * @param atomsDropped if non-null, receives how many atoms that removed.
    */
   typename std::enable_if<dim == 3, void>::type
+  /*! @param filename where to write the two extended-XYZ files, \p _reference0 for the
+   *         undeformed configuration and \p _reference1 for the deformed one.  EMPTY writes
+   *         neither, which is what a survey pass wants: the files cost about a quarter of this
+   *         function and nothing reads them unless the state is being kept.
+   *  @param deformedConfiguration if non-null, receives the deformed configuration in memory,
+   *         ready for the coincidence count and for LAMMPS without a file in between. */
   box(const std::string &filename, int* atomsExpelled = nullptr,
-      const bool& dropUnengagedCoincidences = false, int* atomsDropped = nullptr) const;
+      const bool& dropUnengagedCoincidences = false, int* atomsDropped = nullptr,
+      Configuration* deformedConfiguration = nullptr) const;
     };
     } // namespace oILAB
 

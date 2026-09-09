@@ -224,6 +224,23 @@ static double torusDistance(const Eigen::Vector3d& d,
  *  what tells a truncated file from a complete one.  readXYZFile() above reads more of the format
  *  but recovers the box by counting tokens on the comment line, which the `Lattice="` field's own
  *  leading whitespace shifts; the box is not needed here and is taken from the mesostate. */
+/*! The positions out of a configuration the mesostate handed over in memory.
+ *
+ *  Same rows the file would have held -- species, x, y, z, radius -- without the trip through
+ *  the disk.  The file-reading overload below is still there for configurations that really are
+ *  on disk, such as one being re-examined after a run. */
+static std::vector<Eigen::Vector3d>
+configurationPositions(const GbMesoState<3>::Configuration& configuration)
+{
+    std::vector<Eigen::Vector3d> positions;
+    positions.reserve(configuration.atoms.rows());
+    for (int i=0; i<configuration.atoms.rows(); ++i)
+        positions.emplace_back(configuration.atoms(i,1),
+                               configuration.atoms(i,2),
+                               configuration.atoms(i,3));
+    return positions;
+}
+
 static std::vector<Eigen::Vector3d> configurationPositions(const std::string& filename)
 {
     std::ifstream file(filename);
@@ -1320,17 +1337,17 @@ int main()
                     const auto [lowest,highest]= surfaceExtent(mesostate);
                     phase.construct+= secondsSince(mark);
 
-                    // The scratch configuration: written because LAMMPS needs a file and the
-                    // coincidence count needs the deformed positions, and then left to be
-                    // overwritten by this thread's next state.
-                    const std::string scratchBase= scratchDirectory + "/thread"
-                                                 + std::to_string(omp_get_thread_num());
+                    // The configuration stays in memory.  It used to be written to a scratch
+                    // file because LAMMPS read a file and the coincidence count re-read it;
+                    // LAMMPS takes its atoms directly now, and nothing in this pass keeps the
+                    // state, so the two extended-XYZ files are simply not written.  Measured at
+                    // 23% of box().
                     int expelled= 0, droppedCoincidences= 0;
+                    GbMesoState<3>::Configuration configuration;
                     mark= tick();
-                    mesostate.box(scratchBase, &expelled, dropUnengagedCoincidences,
-                                  &droppedCoincidences);
+                    mesostate.box("", &expelled, dropUnengagedCoincidences,
+                                  &droppedCoincidences, &configuration);
                     phase.box+= secondsSince(mark);
-                    const std::string deformedFile= scratchBase + "_reference1.txt";
 
                     Surveyed record;
                     record.engaged    = engaged;
@@ -1338,7 +1355,7 @@ int main()
 
                     mark= tick();
                     const Coincidences realized= countCoincidences(
-                        configurationPositions(deformedFile),
+                        configurationPositions(configuration),
                         mesostate.mesoStateCslVectors[1].cartesian(),
                         mesostate.mesoStateCslVectors[2].cartesian(),
                         lammpsOverlapCutoff);
@@ -1352,7 +1369,7 @@ int main()
                         // structures themselves are not being kept in this pass.
                         mark= tick();
                         const auto relaxed= mesostate.relaxations(
-                            lmpLocation, potentialName, deformedFile,
+                            lmpLocation, potentialName, configuration,
                             tetherHalfWidth, tetherStiffness, "", "", chainRelaxations);
                         phase.energy+= secondsSince(mark);
                         record.density  = relaxed.density;
@@ -1742,8 +1759,9 @@ int main()
                     // state_<index>_<config>.txt, config 0 undeformed and 1 deformed.
                     const std::string base= scratchDirectory + "/build" + index;
                     int expelled= 0, droppedCoincidences= 0;
+                    GbMesoState<3>::Configuration configuration;
                     mesostate.box(base, &expelled, dropUnengagedCoincidences,
-                                  &droppedCoincidences);
+                                  &droppedCoincidences, &configuration);
                     for (const int configuration : {0,1})
                         std::filesystem::rename(
                             base + "_reference" + std::to_string(configuration) + ".txt",
@@ -1761,9 +1779,8 @@ int main()
                                     distinctSites, engagedSite, siteMarkerRadius);
                     }
 
-                    const std::string deformedFile= outputDirectory + "/state_" + index + "_1.txt";
                     const Coincidences realized= countCoincidences(
-                        configurationPositions(deformedFile),
+                        configurationPositions(configuration),
                         mesostate.mesoStateCslVectors[1].cartesian(),
                         mesostate.mesoStateCslVectors[2].cartesian(),
                         lammpsOverlapCutoff);
@@ -1773,7 +1790,7 @@ int main()
                     GbMesoState<3>::Relaxations relaxed;
                     if (energiesRequested)
                         relaxed= mesostate.relaxations(
-                            lmpLocation, potentialName, deformedFile,
+                            lmpLocation, potentialName, configuration,
                             tetherHalfWidth, tetherStiffness,
                             std::filesystem::absolute(outputDirectory + "/dump.state_" + index
                                                       + "_2").string(),

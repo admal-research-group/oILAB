@@ -15,6 +15,11 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <mutex>
+#include <atomic>
+#include <cstring>
+#include <array>
 #include <cmath>
 #include <algorithm>
 #include <limits>
@@ -459,6 +464,11 @@ Eigen::MatrixXd GbFacet::deformedVertices() const
 
 GbFacet::IntegrationCache GbFacet::build_integration_cache() const
 {
+    // Once per facet: the memo holds weights computed for one set of periods and one quadrature,
+    // and must be emptied rather than misread if any of them has moved.
+    if (memoiseSolidAngles)
+        resetSolidAngleMemo(period1, period2);
+
     IntegrationCache cache;
     const auto& data = meshData;
 
@@ -512,6 +522,7 @@ GbFacet::IntegrationCache GbFacet::build_integration_cache() const
     cache.Q1.resize(nPanels,3);
     cache.Q2.resize(nPanels,3);
     cache.panelDisp.resize(nPanels,3);
+    cache.panelBary.resize(nPanels,3);
 
     // Barycentric lattice point (i,j) of a face, and the displacement interpolated there.
     const double k = static_cast<double>(refinement);
@@ -537,6 +548,13 @@ GbFacet::IntegrationCache GbFacet::build_integration_cache() const
             cache.panelDisp.row(panel) = ( latticePoint(d0,d1,d2,i0,j0)
                                          + latticePoint(d0,d1,d2,i1,j1)
                                          + latticePoint(d0,d1,d2,i2,j2) ) / 3.0;
+            // The same interpolation left in terms of the three nodal values.  latticePoint at
+            // (i,j) weights them (1-i/k-j/k, i/k, j/k), and the panel takes the mean over its
+            // three corners, so the coefficients are that mean.  They sum to one, which is what
+            // keeps a uniform nodal displacement exact at every refinement.
+            const auto bary= [&](int i,int j) {
+                return Eigen::RowVector3d(1.0 - i/k - j/k, i/k, j/k); };
+            cache.panelBary.row(panel) = ( bary(i0,j0) + bary(i1,j1) + bary(i2,j2) ) / 3.0;
             ++panel;
         };
 
@@ -557,6 +575,244 @@ GbFacet::IntegrationCache GbFacet::build_integration_cache() const
     }
 
     return cache;
+}
+
+namespace {
+/*! The signed solid angle a triangle subtends at the origin, by the van Oosterom-Strackee
+ *  construction.  Factored out so the direct sum and the memoised sum cannot drift apart.
+ *
+ *  Negated to match the sign this code integrates with, h = (y - P0).n rather than the
+ *  (P - y).n of the standard solid angle.  A collapsed panel gives a zero numerator and so
+ *  contributes nothing, which is what a panel with no area should do. */
+inline double panelSolidAngle(const Eigen::Vector3d& a,
+                              const Eigen::Vector3d& b,
+                              const Eigen::Vector3d& c)
+{
+    const double aNorm= a.norm(), bNorm= b.norm(), cNorm= c.norm();
+    const double numerator  = a.dot(b.cross(c));
+    const double denominator= aNorm*bNorm*cNorm
+                            + a.dot(b)*cNorm + a.dot(c)*bNorm + b.dot(c)*aNorm;
+    return -2.0*std::atan2(numerator, denominator);
+}
+
+/*! The memo behind GbFacet::triangleWeights().
+ *
+ *  Keyed on the folded query point, the triangle's three REFERENCE corners, and the two
+ *  quadrature settings, which is everything the image sum depends on bar the periods; the state
+ *  enters only through the nodal displacements the weights are later applied to.  The key holds
+ *  the coordinates themselves rather than a hash of them, so a hash collision cannot quietly
+ *  return another triangle's weights.
+ *
+ *  The quadrature settings have to be in the key rather than checked globally, because the three
+ *  facets of a mesostate do not share them: deformedSurface is built with refinement 1, since
+ *  nothing asks it for a displacement.  Treating them as a global context instead empties the
+ *  table about three times per state and the hit rate collapses to 17%.
+ *
+ *  Sharded, because a sweep runs this from every thread at once and a single lock would serialise
+ *  the one part of the field that is cheap.  Read-mostly after the first few hundred states.
+ */
+struct MemoKey
+{
+    std::array<double,14> v;
+    bool operator==(const MemoKey& o) const { return v == o.v; }
+};
+struct MemoHash
+{
+    std::size_t operator()(const MemoKey& k) const
+    {
+        std::size_t h= 1469598103934665603ULL;
+        for (const double d : k.v) {
+            std::size_t b= 0;
+            static_assert(sizeof(double) == sizeof(std::size_t), "");
+            std::memcpy(&b, &d, sizeof b);
+            h= (h ^ b) * 1099511628211ULL;
+        }
+        return h;
+    }
+};
+constexpr int memoShards= 256;
+struct MemoShard
+{
+    std::unordered_map<MemoKey,GbFacet::TriangleWeights,MemoHash> table;
+    std::mutex mutex;
+};
+MemoShard memoShards_[memoShards];
+std::atomic<long long> memoHits{0}, memoMisses{0};
+
+/*! An entry is 12 doubles of key plus 4 of value, and the table's own overhead roughly doubles
+ *  that, so this cap is of order half a gigabyte.  A sweep that outgrows it keeps computing and
+ *  stops inserting rather than growing without bound. */
+long long memoCapacity()
+{
+    const char* v= std::getenv("OILAB_FACET_MEMO_CAPACITY");
+    if (v == nullptr) return 4000000;
+    const long long n= std::atoll(v);
+    return n > 0 ? n : 4000000;
+}
+std::atomic<long long> memoEntries{0};
+
+/*! The periods the table was filled for.  Unlike the quadrature settings these really are shared
+ *  by every facet of a boundary, so they belong here rather than in the key; a run that moves on
+ *  to a different box empties the table.  Checked once per facet, not once per query. */
+std::mutex memoContextMutex;
+bool memoContextSet= false;
+std::array<double,6> memoContext{};
+
+struct MemoReport
+{
+    ~MemoReport()
+    {
+        if (!GbFacet::reportMemoStatistics) return;
+        const long long h= memoHits.load(), m= memoMisses.load();
+        if (h + m == 0) return;
+        std::fprintf(stderr,
+            "\n[facet memo] %lld hits, %lld misses over %lld lookups (%.1f%% hit rate,"
+            " reuse %.1fx)\n             %lld entries held\n",
+            h, m, h+m, 100.0*h/(h+m), (h+m)/static_cast<double>(m ? m : 1),
+            memoEntries.load());
+    }
+};
+MemoReport memoReport;
+
+} // namespace
+
+void GbFacet::resetSolidAngleMemo(const Eigen::Vector3d& period1,
+                                  const Eigen::Vector3d& period2)
+{
+    const std::array<double,6> here{{period1(0),period1(1),period1(2),
+                                     period2(0),period2(1),period2(2)}};
+    std::lock_guard<std::mutex> guard(memoContextMutex);
+    if (memoContextSet && memoContext == here) return;
+    for (auto& shard : memoShards_) {
+        std::lock_guard<std::mutex> shardGuard(shard.mutex);
+        shard.table.clear();
+    }
+    memoEntries.store(0);
+    memoHits.store(0);
+    memoMisses.store(0);
+    memoContext= here;
+    memoContextSet= true;
+}
+
+GbFacet::TriangleWeights
+GbFacet::computeTriangleWeights(const Eigen::Vector3d& x, const int& face) const
+{
+    // Translating an image of the facet by T is the same as translating the field point by -T,
+    // so the images are summed by re-evaluating the base facet at shifted points.  Only the
+    // nearest block is integrated over the refined panels: further out the kernel barely varies
+    // across a whole face, so the face mean is already the right weight, and the sub-triangles
+    // tile their parent exactly so the solid angle is the same either way.
+    const auto& cache= integrationCache;
+    const int perFace= refinement*refinement;
+    TriangleWeights result;
+    for (int m= -imageShells; m <= imageShells; ++m)
+        for (int n= -imageShells; n <= imageShells; ++n)
+        {
+            const Eigen::Vector3d y= x - (m*period1 + n*period2);
+            if (std::abs(m) <= 1 && std::abs(n) <= 1)
+                for (int p= face*perFace; p < (face+1)*perFace; ++p) {
+                    const double omega= panelSolidAngle(cache.Q0.row(p).transpose() - y,
+                                                        cache.Q1.row(p).transpose() - y,
+                                                        cache.Q2.row(p).transpose() - y);
+                    result.omega+= omega;
+                    for (int k= 0; k < 3; ++k) result.w[k]+= omega*cache.panelBary(p,k);
+                }
+            else {
+                const double omega= panelSolidAngle(cache.F0.row(face).transpose() - y,
+                                                    cache.F1.row(face).transpose() - y,
+                                                    cache.F2.row(face).transpose() - y);
+                result.omega+= omega;
+                for (int k= 0; k < 3; ++k) result.w[k]+= omega/3.0;
+            }
+        }
+    return result;
+}
+
+GbFacet::TriangleWeights
+GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
+{
+    if (!memoiseSolidAngles) return computeTriangleWeights(x, face);
+
+    const auto& cache= integrationCache;
+    const Eigen::Vector3d corner[3]= { cache.F0.row(face).transpose(),
+                                       cache.F1.row(face).transpose(),
+                                       cache.F2.row(face).transpose() };
+
+    // The corners go in exactly as the mesh lists them, NOT rotated to a canonical start.
+    //
+    // Rotating would be sound on paper and worth about 60% more reuse: a cyclic rotation is an
+    // even permutation, the closed-form solid angle is cyclically invariant, and the subdivision
+    // into sub-triangles is invariant too (checked exactly, in rationals, for refinement 1 to 4).
+    // It was tried, and it changed 61 of 1119 states by as much as 19 eV.
+    //
+    // The reason is not the rotation.  Some query points sit exactly ON the facet -- one of them
+    // is the midpoint of an edge, 5e-13 A off the plane, in barycentric coordinates (0, 1/2, 1/2)
+    // -- and there the kernel is singular and the solid angle jumps by 4*pi, so the sum is
+    // decided by rounding.  The three cyclic orderings of that triangle give -1.5797, -1.5805
+    // and -1.5809 for what is mathematically one number.  The field is genuinely undefined at
+    // such a point, and the direct sum was already returning whichever value the arithmetic
+    // happened to produce; rotating merely lets two callers pick different ones for one key.
+    //
+    // So the ordering is kept, which makes every entry reproduce the direct sum exactly and the
+    // memo a pure speed change.  See also displacement(), where a query point landing on a NODE
+    // is caught and answered from the nodal value -- the same singularity, in the one place it
+    // can be resolved.
+    MemoKey key;
+    for (int d= 0; d < 3; ++d) key.v[d]= x(d);
+    for (int k= 0; k < 3; ++k)
+        for (int d= 0; d < 3; ++d) key.v[3 + 3*k + d]= corner[k](d);
+    key.v[12]= static_cast<double>(imageShells);
+    key.v[13]= static_cast<double>(refinement);
+
+    MemoShard& shard= memoShards_[MemoHash()(key) % memoShards];
+    {
+        std::lock_guard<std::mutex> guard(shard.mutex);
+        const auto found= shard.table.find(key);
+        if (found != shard.table.end()) {
+            memoHits.fetch_add(1, std::memory_order_relaxed);
+            const TriangleWeights& result= found->second;
+            if (std::getenv("OILAB_FACET_MEMO_VERIFY")) {
+                const TriangleWeights direct= computeTriangleWeights(x, face);
+                double worst= std::abs(direct.omega - result.omega);
+                for (int k= 0; k < 3; ++k)
+                    worst= std::max(worst, std::abs(direct.w[k] - result.w[k]));
+                if (worst > 1e-9) {
+                    static std::atomic<int> shown{0};
+                    if (shown.fetch_add(1) < 6) {
+                        std::fprintf(stderr,
+                          "\n[memo MISMATCH] worst %.3e  shells=%d refine=%d\n"
+                          "   x       %.12f %.12f %.12f\n"
+                          "   corner0 %.12f %.12f %.12f\n"
+                          "   corner1 %.12f %.12f %.12f\n"
+                          "   corner2 %.12f %.12f %.12f\n"
+                          "   omega   memo %.12f  direct %.12f\n"
+                          "   w       memo %.9f %.9f %.9f\n"
+                          "           direct %.9f %.9f %.9f\n",
+                          worst, imageShells, refinement,
+                          x(0),x(1),x(2),
+                          corner[0](0),corner[0](1),corner[0](2),
+                          corner[1](0),corner[1](1),corner[1](2),
+                          corner[2](0),corner[2](1),corner[2](2),
+                          result.omega, direct.omega,
+                          result.w[0],result.w[1],result.w[2],
+                          direct.w[0],direct.w[1],direct.w[2]);
+                    }
+                }
+            }
+            return result;
+        }
+    }
+
+    memoMisses.fetch_add(1, std::memory_order_relaxed);
+    const TriangleWeights computed= computeTriangleWeights(x, face);
+    {
+        static const long long capacity= memoCapacity();
+        std::lock_guard<std::mutex> guard(shard.mutex);
+        if (memoEntries.load(std::memory_order_relaxed) < capacity
+            && shard.table.emplace(key, computed).second)
+            memoEntries.fetch_add(1, std::memory_order_relaxed);
+    }
+    return computed;
 }
 
 // Public functions
@@ -596,22 +852,9 @@ void GbFacet::accumulate(const Eigen::Vector3d& y,
 
     for (int f = 0; f < numPanels; ++f)
     {
-        const Eigen::Vector3d a = A0.row(f).transpose() - y;
-        const Eigen::Vector3d b = A1.row(f).transpose() - y;
-        const Eigen::Vector3d c = A2.row(f).transpose() - y;
-        const double aNorm = a.norm();
-        const double bNorm = b.norm();
-        const double cNorm = c.norm();
-
-        const double numerator   = a.dot(b.cross(c));
-        const double denominator = aNorm*bNorm*cNorm
-                                 + a.dot(b)*cNorm + a.dot(c)*bNorm + b.dot(c)*aNorm;
-
-        // Negated to match the sign this code integrates with, h = (y - P0).n rather than the
-        // (P - y).n of the standard solid angle.  A collapsed panel gives a zero numerator and so
-        // contributes nothing, which is what a panel with no area should do.
-        const double solidAngleOfPanel = -2.0*std::atan2(numerator, denominator);
-
+        const double solidAngleOfPanel = panelSolidAngle(A0.row(f).transpose() - y,
+                                                         A1.row(f).transpose() - y,
+                                                         A2.row(f).transpose() - y);
         omega    += solidAngleOfPanel;
         weighted += solidAngleOfPanel * AD.row(f).transpose();
     }
@@ -717,23 +960,23 @@ Eigen::Vector3d GbFacet::displacement(const Eigen::Vector3d& x0) const
     // truncated field only approximately periodic.  Folding first makes it periodic exactly.
     const Eigen::Vector3d x = foldIntoCell(x0);
 
-    // Translating an image of the facet by T is the same as translating the field point by -T,
-    // so the images are summed by re-evaluating the base facet at shifted points.
+    // The image sum, taken one triangle at a time so that each triangle's contribution can be
+    // memoised -- see triangleWeights().  The weights are the coefficients of the triangle's
+    // three nodal displacements, which is all the state contributes; everything under them is
+    // geometry, and geometry repeats across states.
+    //
+    // Summing per triangle and then over triangles, rather than per image and then over panels,
+    // reorders a floating-point sum.  The two agree to roughly 1e-15 relative, and
+    // OILAB_FACET_MEMO=0 selects the original order for comparison.
     Eigen::Vector3d weighted = Eigen::Vector3d::Zero();
     double omega = 0.0;
-    // Only the nearest block of images is integrated over the refined panels.  Further out the
-    // kernel barely varies across a whole face, so the face mean is already the right weight and
-    // the subdivision would only cost time; the sub-triangles tile their parent exactly, so the
-    // solid angle -- and with it the closure below -- is the same either way.
-    for (int m = -imageShells; m <= imageShells; ++m)
-        for (int n = -imageShells; n <= imageShells; ++n) {
-            Eigen::Vector3d w;
-            double o;
-            const bool near = (std::abs(m) <= 1 && std::abs(n) <= 1);
-            accumulate(x - (m*period1 + n*period2), w, o, near);
-            weighted += w;
-            omega    += o;
-        }
+    for (int f = 0; f < meshData.faces.rows(); ++f)
+    {
+        const TriangleWeights tw = triangleWeights(x, f);
+        for (int k = 0; k < 3; ++k)
+            weighted += tw.w[k] * meshData.displacements.row(meshData.faces(f,k)).transpose();
+        omega += tw.omega;
+    }
 
     // Far-field closure.  The explicit shells miss the rest of the infinite sheet, and the tail
     // converges only as 1/imageShells, so truncating it outright is not good enough.  Beyond the

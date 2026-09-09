@@ -225,13 +225,37 @@ GbMesoState<dim>::GbMesoState(
                                   const std::string& fullDumpFile,
                                   const bool& chainRelaxations) const
     {
-        // As in densityEnergy(): writing the configuration is the expensive part, so it is done
-        // once here at most, and both relaxations read the same file.
-        std::string deformedFile= configFile;
-        if (deformedFile.empty()) {
-            box("temp" + std::to_string(omp_get_thread_num()));
-            deformedFile= "temp" + std::to_string(omp_get_thread_num()) + "_reference1.txt";
+        // Only a path to hand on, so the atoms have to come off disk.  Building the state has to
+        // happen first if there is not even a path.  The sweep does not come through here: it
+        // passes the configuration box() built, and never writes a file at all.
+        Configuration configuration;
+        if (configFile.empty())
+            box("", nullptr, false, nullptr, &configuration);
+        else {
+            const auto [atoms, cellBox, origin]= read_oILAB_output(configFile);
+            configuration.atoms= atoms;
+            configuration.box= cellBox;
+            configuration.origin= origin;
         }
+        return relaxations(lmpLocation, potentialName, configuration, tetherHalfWidth,
+                           tetherStiffness, tetheredDumpFile, fullDumpFile, chainRelaxations);
+    }
+
+    /*-------------------------------------*/
+    template<int dim>
+    typename GbMesoState<dim>::Relaxations
+    GbMesoState<dim>::relaxations(const std::string& lmpLocation,
+                                  const std::string& potentialName,
+                                  const Configuration& configuration,
+                                  const double& tetherHalfWidth,
+                                  const double& tetherStiffness,
+                                  const std::string& tetheredDumpFile,
+                                  const std::string& fullDumpFile,
+                                  const bool& chainRelaxations) const
+    {
+        const auto& atoms= configuration.atoms;
+        const auto& cellBox= configuration.box;
+        const auto& origin= configuration.origin;
 
         Relaxations result;
 
@@ -241,7 +265,7 @@ GbMesoState<dim>::GbMesoState(
             // it, and relaxes again from there.  The tethered structure goes to the first dump
             // and the freely relaxed one to the second, as when the two are run separately.
             double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
-            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
                                         tetheredDumpFile, tetherHalfWidth, tetherStiffness,
                                         &spring, &unrelaxedEnergy,
                                         true, fullDumpFile, &freeEnergy);
@@ -262,7 +286,7 @@ GbMesoState<dim>::GbMesoState(
             // of the potential file and a neighbour-list build, which is most of what an
             // invocation costs; the physics is untouched.
             double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
-            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
                                         tetheredDumpFile, tetherHalfWidth, tetherStiffness,
                                         &spring, &unrelaxedEnergy,
                                         false, fullDumpFile, &freeEnergy, true);
@@ -278,7 +302,7 @@ GbMesoState<dim>::GbMesoState(
         // a tether.  Slower by a process launch and a potential parse per state, and the answer
         // is the same -- which is what makes it the check on the shared-invocation path above.
         double ignoredSpring= 0.0, unrelaxed= 0.0;
-        const auto full= energy(lmpLocation, deformedFile, potentialName, true,
+        const auto full= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
                                 fullDumpFile, 0.0, 1.0, &ignoredSpring, &unrelaxed);
         result.density  = full.first;
         result.full     = full.second;
@@ -287,7 +311,7 @@ GbMesoState<dim>::GbMesoState(
         result.spring   = 0.0;
         if (tetherHalfWidth > 0.0) {
             double spring= 0.0, unrelaxedAgain= 0.0;
-            const auto tethered= energy(lmpLocation, deformedFile, potentialName, true,
+            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
                                         tetheredDumpFile, tetherHalfWidth, tetherStiffness,
                                         &spring, &unrelaxedAgain);
             result.tethered= tethered.second;
@@ -338,7 +362,8 @@ GbMesoState<dim>::GbMesoState(
     template<int dim>
     typename std::enable_if<dim==3,void>::type
     GbMesoState<dim>::box(const std::string& name, int* atomsExpelled,
-                          const bool& dropUnengagedCoincidences, int* atomsDropped) const
+                          const bool& dropUnengagedCoincidences, int* atomsDropped,
+                          Configuration* deformedConfiguration) const
     {
         const auto& config= gb.bc.box(mesoStateCslVectors,0);
         std::vector<LatticeVector<3>> boxVectors;
@@ -599,9 +624,46 @@ GbMesoState<dim>::GbMesoState(
         const double referenceScale= outOfPlaneScale(referenceConfigA, referenceConfigB);
         const double deformedScale=  outOfPlaneScale(deformedConfigA,  deformedConfigB);
 
+        // The deformed configuration in memory, in the layout read_oILAB_output() produces, so
+        // that the coincidence count and LAMMPS can take it directly.  The three cell vectors go
+        // in as columns and the species leads each row, exactly as the file spells them.
+        if (deformedConfiguration)
+        {
+            Configuration& out= *deformedConfiguration;
+            out.atoms.resize(nAtoms,5);
+            out.atoms.setZero();
+            for (std::size_t i=0; i<deformedConfigA.size(); ++i) {
+                out.atoms(i,0)= speciesA[i];
+                out.atoms.row(i).segment(1,3)= deformedConfigA[i].transpose();
+                out.atoms(i,4)= 0.05;
+            }
+            const std::size_t offset= deformedConfigA.size();
+            for (std::size_t i=0; i<deformedConfigB.size(); ++i) {
+                out.atoms(offset+i,0)= speciesB[i];
+                out.atoms.row(offset+i).segment(1,3)= deformedConfigB[i].transpose();
+                out.atoms(offset+i,4)= 0.05;
+            }
+            out.box.col(0)= deformedScale*2*boxVectors[0].cartesian();
+            out.box.col(1)= boxVectors[1].cartesian();
+            out.box.col(2)= boxVectors[2].cartesian();
+            out.origin= -deformedScale*boxVectors[0].cartesian();
+        }
+
+        // No name, no files.  A survey pass wants the numbers, not the configuration, and
+        // writing two extended-XYZ files at fifteen digits is about a quarter of this function.
+        if (name.empty()) return;
+
         std::string referenceFile= name + "_reference0.txt";
         std::string deformedFile= name + "_reference1.txt";
 
+        // Seventeen digits throughout, atoms and cell vectors alike, because that is what a
+        // double survives a round trip through decimal at.  At fifteen the file was not the
+        // configuration the construction produced but a close decimal neighbour of it, and
+        // reading it back moved the freely relaxed energy of 42 of 1119 states by up to 5.6e-6
+        // eV -- the free minimisation being soft enough to amplify the last bits, while the
+        // as-constructed and tethered energies were unmoved.  The sweep does not read these
+        // files any longer, so this matters for anything that re-examines a state afterwards:
+        // at seventeen digits it reproduces the sweep exactly, checked over all 1119 states.
         std::ofstream reference, deformed;
         reference.open(referenceFile);
         deformed.open(deformedFile);
@@ -609,27 +671,27 @@ GbMesoState<dim>::GbMesoState(
         reference << nAtoms << std::endl; deformed << nAtoms << std::endl;
         reference << "Lattice=\" "; deformed << "Lattice=\" ";
 
-        reference << std::setprecision(15) << (referenceScale*2*boxVectors[0].cartesian()).transpose() << " ";
-        deformed << std::setprecision(15) << (deformedScale*2*boxVectors[0].cartesian()).transpose() << " ";
-        reference << std::setprecision(15) << (boxVectors[1].cartesian()).transpose() << " ";
-        deformed << std::setprecision(15) << (boxVectors[1].cartesian()).transpose() << " ";
-        reference << std::setprecision(15) << (boxVectors[2].cartesian()).transpose();
-        deformed << std::setprecision(15) << (boxVectors[2].cartesian()).transpose();
+        reference << std::setprecision(17) << (referenceScale*2*boxVectors[0].cartesian()).transpose() << " ";
+        deformed << std::setprecision(17) << (deformedScale*2*boxVectors[0].cartesian()).transpose() << " ";
+        reference << std::setprecision(17) << (boxVectors[1].cartesian()).transpose() << " ";
+        deformed << std::setprecision(17) << (boxVectors[1].cartesian()).transpose() << " ";
+        reference << std::setprecision(17) << (boxVectors[2].cartesian()).transpose();
+        deformed << std::setprecision(17) << (boxVectors[2].cartesian()).transpose();
         reference << "\" Properties=atom_types:I:1:pos:R:3:radius:R:1 PBC=\"F T T\" origin=\" "; deformed << "\" Properties=atom_types:I:1:pos:R:3:radius:R:1 PBC=\" F T T\" origin=\" ";
-        reference << std::setprecision(15) << (-referenceScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
-        deformed << std::setprecision(15) << (-deformedScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
+        reference << std::setprecision(17) << (-referenceScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
+        deformed << std::setprecision(17) << (-deformedScale * boxVectors[0].cartesian()).transpose() << "\"" << std::endl;
 
         for(std::size_t i=0; i<referenceConfigA.size(); ++i)
-            reference << speciesA[i] << " " << std::setprecision(15)
+            reference << speciesA[i] << " " << std::setprecision(17)
                       << referenceConfigA[i].transpose() << "  " << 0.05 << std::endl;
         for(std::size_t i=0; i<referenceConfigB.size(); ++i)
-            reference << speciesB[i] << " " << std::setprecision(15)
+            reference << speciesB[i] << " " << std::setprecision(17)
                       << referenceConfigB[i].transpose() << "  " << 0.05 << std::endl;
         for(std::size_t i=0; i<deformedConfigA.size(); ++i)
-            deformed << speciesA[i] << " " << std::setprecision(15)
+            deformed << speciesA[i] << " " << std::setprecision(17)
                      << deformedConfigA[i].transpose() << "  " << 0.05 << std::endl;
         for(std::size_t i=0; i<deformedConfigB.size(); ++i)
-            deformed << speciesB[i] << " " << std::setprecision(15)
+            deformed << speciesB[i] << " " << std::setprecision(17)
                      << deformedConfigB[i].transpose() << "  " << 0.05 << std::endl;
 
         reference.close();
