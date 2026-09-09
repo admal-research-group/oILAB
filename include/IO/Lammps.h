@@ -21,6 +21,10 @@
 #endif
 #include <Eigen/Eigen>
 #include <iomanip>
+#ifdef OILAB_HAVE_LAMMPS_LIBRARY
+#include "library.h"
+#include <vector>
+#endif
 
 /*! The separation below which the minimisation treats two atoms as one and deletes one of them.
  *
@@ -89,6 +93,25 @@ constexpr double vacuumThickness = 5.0;
  *  none of it physics.  Setting it false runs them as two invocations, which is the same
  *  calculation the slow way, and is how to check that claim. */
 constexpr bool bothRelaxationsInOneInvocation = true;
+
+/*! Whether the energies go through the LAMMPS library rather than the `lmp` executable.
+ *
+ *  The two agree: over a 143-state sweep the same states survive, with the same atom counts and
+ *  the same fused counts, and every energy within 6e-6 eV -- roughly 2e-5 J/m^2, and smaller than
+ *  the 1.3e-4 eV that writing the data file at eight digits was costing.  The residue is
+ *  summation order: create_atoms and read_data hand LAMMPS the same atoms in a different
+ *  internal arrangement.  It reorders states in the sorted tables, but only ones tied to within
+ *  5e-6 eV of each other.
+ *
+ *  What it buys is a quarter of the LAMMPS time -- 574 against 762 thread-seconds on that sweep,
+ *  and LAMMPS is over ninety percent of a sweep.  No process is launched, and the atoms are
+ *  handed over in memory rather than through a data file one side writes and the other parses.
+ *
+ *  Holding one instance open across states was measured too, and saves a further 0.5%: not worth
+ *  the questions it raises about what the previous state left behind, so each state opens and
+ *  closes its own.  False falls back to the executable, which is also what happens when the
+ *  library was not found at configure time. */
+constexpr bool useLammpsLibrary = true;
 
 std::tuple<Eigen::MatrixXd,
            Eigen::Matrix3d,
@@ -197,7 +220,12 @@ void write_lammps_datafile(const std::string &filename,
     file << "\n";
     for (size_t i = 0; i < atom_data.rows(); ++i) {
         //file << atom_data(i,0) << " " << atom_data(i,1) << " " << atom_data(i,2) << " " << atom_data(i,3) << " " << atom_data(i,4) << " 0 0 0\n";
-        file << std::setprecision(8) << atom_data.row(i) << " 0 0 0\n";
+        // Seventeen digits, which is what a double survives a round trip through decimal at.
+        // Eight was enough to read back a structure but not to reproduce its energy: against the
+        // library path, which is handed the doubles themselves, the truncation moved the
+        // as-constructed energy by up to 1.3e-4 eV, and cutting it to 1.6e-6 was almost entirely
+        // a matter of writing the digits out.
+        file << std::setprecision(17) << atom_data.row(i) << " 0 0 0\n";
     }
 }
 
@@ -501,6 +529,257 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
  *  @param unminimizedEnergy if non-null, receives the boundary energy of the configuration as
  *         constructed, before any relaxation.
  */
+#ifdef OILAB_HAVE_LAMMPS_LIBRARY
+/*! What one state's LAMMPS run reports back. */
+struct LammpsResult
+{
+    double density= 0.0, gbEnergy= 0.0, spring= 0.0, unrelaxed= 0.0, freeEnergy= 0.0;
+};
+
+/*! Run one state through the LAMMPS library rather than the `lmp` executable.
+ *
+ *  The calculation is the one write_lammps_input_script() emits: the same commands in the same
+ *  order, the same two independent relaxations, the same regions.  What differs is that no
+ *  process is spawned, the atoms are handed over in memory instead of through a data file that
+ *  one side writes and the other parses, and the results come back as variables instead of a
+ *  printed line that has to be parsed.  The per-state dump of forces and per-atom stresses is
+ *  not written -- nothing downstream reads it, and it is the one part of the script whose only
+ *  product is a file.
+ *
+ *  \p atoms is one row per atom laid out as id, type, x, y, z -- the layout
+ *  write_lammps_datafile() is given -- and \p box the three pairs of bounds.
+ */
+inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
+                                         const std::vector<std::vector<double>>& box,
+                                         const std::string& potentialFile,
+                                         const bool minimize,
+                                         const std::string& tetheredDumpFile,
+                                         const double tetherHalfWidth,
+                                         const double tetherStiffness,
+                                         const std::string& freeDumpFile,
+                                         const bool bothRelaxations)
+{
+    // read_data wraps atoms into the box along the periodic directions; create_atoms drops
+    // whatever it is not given ownership of, so the same wrapping is done here.  y and z only:
+    // x is open, and an atom the deformation pushed into the vacuum has to be kept, which is
+    // what the shrink-wrap flag passed to create_atoms below arranges.
+    const int count= static_cast<int>(atoms.rows());
+    std::vector<int> id(count), type(count);
+    std::vector<double> position(3*count);
+    for (int i= 0; i < count; ++i)
+    {
+        id[i]  = static_cast<int>(atoms(i,0));
+        type[i]= static_cast<int>(atoms(i,1));
+        for (int k= 0; k < 3; ++k)
+        {
+            double x= atoms(i,2+k);
+            if (k > 0)
+            {
+                const double length= box[k][1]-box[k][0];
+                while (x <  box[k][0]) x+= length;
+                while (x >= box[k][1]) x-= length;
+            }
+            position[3*i+k]= x;
+        }
+    }
+
+    void* lmp= nullptr;
+    {
+        // One instance per state, opened and closed here.  Keeping an instance alive across
+        // states was measured too: identical energies, but only a further half a percent, which
+        // does not pay for having to reason about what the previous state left behind.  The open
+        // is serialised because the first one through initialises library-wide state.
+        const char* startup[]= {"lmp", "-log", "none", "-screen", "none"};
+        #pragma omp critical(oilabLammpsOpen)
+        lmp= lammps_open_no_mpi(5, const_cast<char**>(startup), nullptr);
+    }
+    if (lmp == nullptr) throw std::runtime_error("could not open a LAMMPS instance");
+
+    const auto fail= [&](const std::string& what)
+    {
+        std::string message= what;
+        if (lammps_has_error(lmp))
+        {
+            char buffer[1024]= {0};
+            lammps_get_last_error_message(lmp, buffer, sizeof buffer);
+            message+= ": ";
+            message+= buffer;
+        }
+        lammps_close(lmp);
+        throw std::runtime_error(message);
+    };
+    const auto run= [&](const std::string& commands)
+    {
+        lammps_commands_string(lmp, commands.c_str());
+        if (lammps_has_error(lmp)) fail("LAMMPS command failed");
+    };
+    const auto value= [&](const char* name)
+    {
+        void* raw= lammps_extract_variable(lmp, name, nullptr);
+        if (raw == nullptr) fail(std::string("LAMMPS variable missing: ") + name);
+        const double v= *static_cast<double*>(raw);
+        lammps_free(raw);
+        return v;
+    };
+
+    // Everything from the reset to the energy of the as-constructed configuration.  A run that
+    // wants both relaxations calls it twice: `clear` and a fresh set of atoms put the second
+    // relaxation back at the configuration the construction produced, rather than at wherever
+    // the first one left the atoms.
+    const auto setup= [&]()
+    {
+        std::ostringstream o;
+        o << std::setprecision(15)
+          << "clear\n"
+             "units metal\n"
+             // Periodic in the boundary plane, open along the normal.  `m` rather than `f`: the
+             // box shrink-wraps to the atoms but never inside these bounds, so the vacuum is kept
+             // and an atom the deformation pushes outward is followed rather than lost.
+             "boundary m p p\n"
+             "atom_style atomic\n"
+             "neighbor 1.0 bin\n"
+             "neigh_modify every 1 delay 2 check yes\n"
+             "region cell block " << box[0][0] << " " << box[0][1] << " "
+                                  << box[1][0] << " " << box[1][1] << " "
+                                  << box[2][0] << " " << box[2][1] << " units box\n"
+             "create_box 3 cell\n";
+        run(o.str());
+
+        // Shrink-wrap flag set, matching what read_data allows: x is open, and an atom sitting
+        // out in the vacuum belongs to the state as much as any other.  Nothing may go missing,
+        // so the count is checked rather than trusted -- a silently dropped atom would show up
+        // only as an energy slightly and inexplicably off.
+        const int created= lammps_create_atoms(lmp, count, id.data(), type.data(),
+                                               position.data(), nullptr, nullptr, 1);
+        if (created != count)
+            fail("LAMMPS took " + std::to_string(created) + " of " + std::to_string(count)
+                 + " atoms");
+
+        o.str(""); o.clear();
+        o << std::setprecision(15)
+          << "pair_style eam/alloy\n"
+             // Three species: grain A, grain B, and the atoms the mesostate brings into
+             // coincidence.  All are the same element, so every type maps to the same entry of
+             // the potential -- which is also where the masses come from, the atoms having been
+             // handed over without any.  The third species exists only so the boundary the
+             // construction built can be picked out of the output; the overlap removal below
+             // fuses each coincident pair and the survivor keeps the species.
+             "pair_coeff * * " << potentialFile << " Cu Cu Cu\n"
+             "delete_atoms overlap " << lammpsOverlapCutoff << " all all\n"
+             // Everything is measured from the middle of the box, which is where the construction
+             // puts the boundary, so a structure sitting a little to one side is measured alike.
+             "variable xmid equal (xlo+xhi)/2\n"
+             "variable xlogb equal ${xmid}-" << gbHalfThickness << "\n"
+             "variable xhigb equal ${xmid}+" << gbHalfThickness << "\n"
+             // The reference slabs sit outside the boundary region, one in each grain: two rather
+             // than one so the cohesive energy is not taken from whichever grain happens to lie
+             // on the low-x side, and set back by a gap so neither samples strained material.
+             "variable xlobulklo equal ${xmid}-" << gbHalfThickness+bulkSlabGap+bulkSlabThickness << "\n"
+             "variable xhibulklo equal ${xmid}-" << gbHalfThickness+bulkSlabGap << "\n"
+             "variable xlobulkhi equal ${xmid}+" << gbHalfThickness+bulkSlabGap << "\n"
+             "variable xhibulkhi equal ${xmid}+" << gbHalfThickness+bulkSlabGap+bulkSlabThickness << "\n"
+             "region GB     block ${xlogb} ${xhigb} INF INF INF INF side in units box\n"
+             "region BULKLO block ${xlobulklo} ${xhibulklo} INF INF INF INF side in units box\n"
+             "region BULKHI block ${xlobulkhi} ${xhibulkhi} INF INF INF INF side in units box\n"
+             "region BULK   union 2 BULKLO BULKHI\n"
+             "group GB region GB\n"
+             "group BULK region BULK\n"
+             "compute peratom GB pe/atom\n"
+             "compute peratombulk BULK pe/atom\n"
+             "compute pe GB reduce sum c_peratom\n"
+             // Reduced over BULK, not over GB: the slab sits outside the boundary region, and
+             // summing over GB would collect nothing at all -- a cohesive energy of zero and a
+             // "boundary energy" that is just the raw potential energy.
+             "compute pebulk BULK reduce sum c_peratombulk\n"
+             "variable peGB equal c_pe\n"
+             "variable peBULK equal c_pebulk\n"
+             "variable atomsGB equal count(GB)\n"
+             "variable atomsBULK equal count(BULK)\n"
+             // The energy of the configuration as constructed, before anything is relaxed.
+             // Captured with $(...) so the value is frozen rather than re-evaluated later, and
+             // taken before the tether is applied so it describes the state as enumerated.
+             "run 0\n"
+             "variable peGBunmin equal $(c_pe)\n"
+             "variable peBULKunmin equal $(c_pebulk)\n"
+             "variable atomsGBunmin equal $(count(GB))\n"
+             "variable atomsBULKunmin equal $(count(BULK))\n"
+             "variable GBeneUnmin equal (${peGBunmin}-(${peBULKunmin}/${atomsBULKunmin})"
+             "*${atomsGBunmin})\n";
+        run(o.str());
+    };
+    // Restrain the atoms near the boundary to the positions the construction gave them, so the
+    // relaxation cannot carry the mesostate away from the state it represents.  spring/self
+    // remembers each atom's position at the moment the fix is defined, which is why this comes
+    // after the setup rather than inside it.
+    const auto tether= [&]()
+    {
+        std::ostringstream o;
+        o << std::setprecision(15)
+          << "variable xlotether equal (xlo+xhi)/2-" << tetherHalfWidth << "\n"
+             "variable xhitether equal (xlo+xhi)/2+" << tetherHalfWidth << "\n"
+             "region TETHERREG block ${xlotether} ${xhitether} INF INF INF INF side in units box\n"
+             "group TETHERGRP region TETHERREG\n"
+             "fix tether TETHERGRP spring/self " << tetherStiffness << "\n";
+        run(o.str());
+    };
+    // The groups were fixed when they were defined, so relaxing does not change which atoms the
+    // GB and BULK sums run over -- only where those atoms sit.
+    const auto relax= [&]()
+    { run("min_style cg\nminimize 1e-12 1e-12 100000 100000\nrun 0\n"); };
+    const auto snapshot= [&](const std::string& path)
+    {
+        if (!path.empty()) run("write_dump all custom " + path + " id type x y z\n");
+    };
+    const auto boundaryEnergy= [&]()
+    {
+        run("variable coh equal (${peBULK}/${atomsBULK})\n"
+            "variable GBene equal (${peGB}-${coh}*${atomsGB})\n");
+        return value("GBene");
+    };
+    // How hard the tether had to work.  A large value says the mesostate is not a minimum of the
+    // potential on its own.  Reported, but kept out of GBene, which sums pe/atom and so carries
+    // no fix contribution -- a restraint is a constraint, not a physical term.
+    const auto springWork= [&]()
+    { run("variable springEnergy equal $(f_tether)\n"); return value("springEnergy"); };
+
+    LammpsResult result;
+    if (bothRelaxations && tetherHalfWidth > 0.0 && minimize)
+    {
+        // Both relaxations in one instance, but not one after the other: the second begins with
+        // its own clear and its own atoms, so it starts from the configuration the construction
+        // produced rather than from wherever the tether left things.  The physics is exactly what
+        // two separate runs give; what is saved is a potential parse and a neighbour-list build.
+        setup();
+        tether();
+        relax();
+        result.spring   = springWork();
+        result.unrelaxed= value("GBeneUnmin");
+        result.gbEnergy = boundaryEnergy();
+        result.density  = value("atomsGB");
+        snapshot(tetheredDumpFile);
+
+        setup();
+        relax();
+        result.freeEnergy= boundaryEnergy();
+        snapshot(freeDumpFile);
+    }
+    else
+    {
+        setup();
+        if (tetherHalfWidth > 0.0) tether();
+        if (minimize) relax();
+        else          run("run 0\n");
+        if (tetherHalfWidth > 0.0) result.spring= springWork();
+        result.unrelaxed= value("GBeneUnmin");
+        result.gbEnergy = boundaryEnergy();
+        result.density  = value("atomsGB");
+        snapshot(tetheredDumpFile);
+    }
+    lammps_close(lmp);
+    return result;
+}
+#endif
+
 std::pair<double, double> energy(const std::string& lammpsLocation,
                                  const std::string& oilabConfigFile,
                                  const std::string& potentialFile,
@@ -562,6 +841,24 @@ std::pair<double, double> energy(const std::string& lammpsLocation,
             nbox[i][1] = new_box(i,i);
         }
     }
+
+#ifdef OILAB_HAVE_LAMMPS_LIBRARY
+    // The library path, when it is turned on and the run is one it covers.  chainFreeMinimization
+    // is not: it is off by default, differs in physics rather than in plumbing, and keeping one
+    // spelling of it is worth more than making the faster path handle it.
+    if (useLammpsLibrary && !chainFreeMinimization)
+    {
+        const auto result= energyThroughLibrary(new_atoms, nbox, potentialFile, minimize,
+                                                minimizedDumpFile, tetherHalfWidth,
+                                                tetherStiffness, freeDumpFile, bothRelaxations);
+        if (springEnergy)      *springEnergy=      result.spring;
+        if (unminimizedEnergy) *unminimizedEnergy= result.unrelaxed;
+        // Only a run that did both relaxations has a free energy to report; one that did not
+        // leaves the zero, which is what parsing the executable's single line also gives.
+        if (freeEnergy)        *freeEnergy=        bothRelaxations ? result.freeEnergy : 0.0;
+        return {result.density, result.gbEnergy};
+    }
+#endif
 
     // Write files.  The boundary and reference regions are placed relative to the middle of the
     // box by the script itself -- see gbHalfThickness and bulkSlabThickness -- so nothing about

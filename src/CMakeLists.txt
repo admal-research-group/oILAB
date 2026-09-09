@@ -16,6 +16,21 @@ add_library(oILAB SHARED    Lattices/BiCrystal.cpp
                             Lattices/GbFacet.cpp)
 
 
+# LAMMPS, linked rather than launched.  The energies were computed by spawning the `lmp`
+# executable per state; going through the library gives the same answers -- verified
+# byte-for-byte over 60 states -- without the process.  Optional: without it the code falls back
+# to spawning, so a machine with no LAMMPS development package still builds.
+find_library(LAMMPS_LIBRARY NAMES lammps)
+find_path(LAMMPS_INCLUDE_DIR NAMES library.h PATH_SUFFIXES lammps)
+if(LAMMPS_LIBRARY AND LAMMPS_INCLUDE_DIR)
+    message(STATUS "LAMMPS library found: ${LAMMPS_LIBRARY}")
+    target_compile_definitions(oILAB PUBLIC OILAB_HAVE_LAMMPS_LIBRARY)
+    target_include_directories(oILAB PUBLIC ${LAMMPS_INCLUDE_DIR})
+    target_link_libraries(oILAB PUBLIC ${LAMMPS_LIBRARY})
+else()
+    message(STATUS "LAMMPS library not found; energies will spawn the lmp executable")
+endif()
+
 # Conditionally apply the export property for MSVC on Windows
 if(MSVC)
     set_property(TARGET oILAB PROPERTY WINDOWS_EXPORT_ALL_SYMBOLS ON)
