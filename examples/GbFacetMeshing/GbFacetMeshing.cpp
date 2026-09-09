@@ -532,17 +532,34 @@ int main()
 
 
 	VectorDimD axis(0, 0, 1);
-	double theta= 53.130102354155994249*std::numbers::pi/180;       // misorientation angle
-	//double theta = 36.869897645844041278*std::numbers::pi/180;       // misorientation angle
+	//double theta= 53.130102354155994249*std::numbers::pi/180;       // misorientation angle
+	double theta = 36.869897645844041278*std::numbers::pi/180;       // misorientation angle
     //double theta = 43.602818972703637712*std::numbers::pi/180;       // misorientation angle
     //double theta = 28.072486935852960954*std::numbers::pi/180;       // misorientation angle
-    VectorDimD gbNormal(-2,1,0);                        // Miller indices
-    //VectorDimD gbNormal(-3,1,0);                        // Miller indices
+    //VectorDimD gbNormal(-2,1,0);                        // Miller indices
+    VectorDimD gbNormal(-3,1,0);                        // Miller indices
 	//VectorDimD gbNormal(-5,2,0);
     //VectorDimD gbNormal(-4,1,0);
     int heightScaling= 4;
+
+    /*! The least the crystal may measure along the boundary normal, in Angstrom.
+     *
+     *  heightScaling counts CSL repeats, and a repeat is as long as the boundary makes it: four
+     *  of them give 64.7 A on sigma5 (210) and only 45.7 A on sigma5 (310).  That is not a
+     *  cosmetic difference.  The cohesive energy is read off a slab sitting
+     *  gbHalfThickness+bulkSlabGap out from the middle -- 16 A as those are currently set -- and
+     *  a 45.7 A crystal leaves that slab 1.9 A short of the free surface, so it samples
+     *  under-coordinated atoms instead of bulk.  Measured on sigma5 (310) at axisScaling 3, the
+     *  lowest relaxed boundary energy came out 0.311 J/m^2 that way against 0.905 J/m^2 once the
+     *  crystal was thick enough: wrong by a factor of three, and quietly.
+     *
+     *  So heightScaling is a request rather than the last word.  Whatever it asks for, enough
+     *  repeats are taken to reach this thickness, which decouples the answer from how long the
+     *  boundary happens to make its repeat.  Note this is the crystal, not the LAMMPS box -- the
+     *  box is this plus vacuumThickness at each end. */
+    const double minimumCrystalThickness= 50.0;
 	int periodScaling= 1;
-	int axisScaling= 2;
+	int axisScaling= 3;
 
 
     // enumerateStates: build every mesostate the ensemble's (t,s) pairs admit.  Set it false to
@@ -573,7 +590,7 @@ int main()
     // outside the build tree, so that regenerating or clearing a build directory cannot reach
     // them.  "." writes them into the working directory instead, which for a run started from
     // the IDE is the directory holding the binary.
-    const std::string outputRoot          = ".";
+    const std::string outputRoot          = GBFACETMESHING_RUNS_DIR;
     // How large the coincidence-site markers are drawn in state_<index>_0.txt.  The atoms carry
     // 0.05, so a larger value picks the sites out of the structure rather than hiding them in it
     // -- but only just larger: at four times the atomic radius the markers sat over the boundary
@@ -755,7 +772,26 @@ int main()
         LatticeVector<3> axisA(gb.bc.A.latticeDirection(axis).latticeVector());
         LatticeVector<3> axisC(gb.bc.getLatticeDirectionInC(axisA).latticeVector());
         std::vector<LatticeVector<3>> cslVectors;
-        cslVectors.push_back(heightScaling*gb.bc.csl.latticeDirection(gb.nA.cartesian()).latticeVector());
+        // Enough CSL repeats along the normal to satisfy both heightScaling and the floor above.
+        // Gb::box() lays the cell out from -boxVectors[0] to +boxVectors[0], one grain on each
+        // side, so the crystal measures twice this vector -- hence the 2 here.  Getting that
+        // factor wrong is not harmless in either direction: too few repeats is the error the
+        // floor exists to prevent, and too many multiplies the cost of every state in the sweep.
+        const LatticeVector<3> heightRepeat=
+            gb.bc.csl.latticeDirection(gb.nA.cartesian()).latticeVector();
+        const double crystalPerRepeat= 2.0*heightRepeat.cartesian().norm();
+        const int heightRepeatsNeeded=
+            static_cast<int>(std::ceil(minimumCrystalThickness/crystalPerRepeat));
+        const int effectiveHeightScaling= std::max(heightScaling, heightRepeatsNeeded);
+        std::cout << "crystal along the normal: " << effectiveHeightScaling << " CSL repeat(s), "
+                  << crystalPerRepeat << " A of crystal each = "
+                  << effectiveHeightScaling*crystalPerRepeat << " A";
+        if (effectiveHeightScaling > heightScaling)
+            std::cout << "  (heightScaling " << heightScaling << " would have given only "
+                      << heightScaling*crystalPerRepeat << " A, under the "
+                      << minimumCrystalThickness << " A floor)";
+        std::cout << std::endl;
+        cslVectors.push_back(effectiveHeightScaling*heightRepeat);
         cslVectors.push_back(periodScaling*gb.getPeriodVector(rAxisA));
         cslVectors.push_back(axisScaling*axisC);
         gb.box(cslVectors,1,"gb.txt",false);
