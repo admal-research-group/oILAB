@@ -17,6 +17,8 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
+#include <shared_mutex>
+#include <cstdint>
 #include <atomic>
 #include <cstring>
 #include <array>
@@ -439,6 +441,30 @@ GbFacet::GbFacet(const std::vector<std::vector<double>>& point_cloud,
     planeNormal = meanNormal.normalized();
     centroid    = meshData.vertices.colwise().mean().transpose();
 
+    // The same mean weighted by PROJECTED area.  A distant image contributes as a dipole of
+    // moment sum(S_p (x) d_p) with S_p = A_p n_p the panel's vector area, so what the tail sees
+    // is the vector-area-weighted mean -- the projection on the boundary plane, not the true
+    // area.  The two agree only for a flat facet, and the reference facets here are stepped.
+    {
+        const Eigen::VectorXd projected=
+            integrationCache.faceAreas.array() * (meshData.normals * planeNormal).array();
+        const double totalProjected= projected.sum();
+        meanDispProjected= std::abs(totalProjected) < 1e-14
+            ? meanDisp
+            : Eigen::Vector3d((integrationCache.faceMeanDisp.array().colwise()
+                               * projected.array()).colwise().sum().transpose() / totalProjected);
+    }
+
+    // The band the sheet occupies along its own normal -- see bandLow/bandHigh.  Taken over the
+    // vertices, which bound the piecewise-linear surface between them, and unaffected by the
+    // periodic images since those are translated in plane.
+    {
+        const Eigen::VectorXd heights=
+            (meshData.vertices.rowwise() - centroid.transpose()) * planeNormal;
+        bandLow = heights.minCoeff();
+        bandHigh= heights.maxCoeff();
+    }
+
     if (!announceConstruction) return;
     std::cout << "Mesh built with " << nVertices << " vertices (" << point_cloud.size()
               << " nodes + periodic copies), " << nFaces << " faces";
@@ -494,6 +520,15 @@ GbFacet::IntegrationCache GbFacet::build_integration_cache() const
     Cross.col(2) = E1.col(0).cwiseProduct(E2.col(1)) - E1.col(1).cwiseProduct(E2.col(0));
 
     cache.faceAreas   = 0.5 * Cross.rowwise().norm();
+    cache.faceVectorArea = 0.5 * Cross;
+    cache.faceCentroid   = (P0 + P1 + P2) / 3.0;
+    cache.faceRadius.resize(P0.rows());
+    for (int f = 0; f < P0.rows(); ++f) {
+        const Eigen::RowVector3d c = cache.faceCentroid.row(f);
+        cache.faceRadius(f) = std::max({ (P0.row(f)-c).norm(),
+                                         (P1.row(f)-c).norm(),
+                                         (P2.row(f)-c).norm() });
+    }
     cache.faceMeanDisp = (D0 + D1 + D2) / 3.0;
 
     // Subdivide every face for the quadrature.  The triangulation only joins the nodes, so its
@@ -611,9 +646,17 @@ inline double panelSolidAngle(const Eigen::Vector3d& a,
  *  Sharded, because a sweep runs this from every thread at once and a single lock would serialise
  *  the one part of the field that is cheap.  Read-mostly after the first few hundred states.
  */
+/*! The key: the coordinates themselves, exactly, not a hash and not rounded.
+ *
+ *  Quantising to 1e-6 A was tried, to halve the entry and to fold together points that agree to
+ *  within a micro-Angstrom.  It changed 250 of 1119 states, one of them by 2058 eV.  The reason
+ *  is the same singularity that ruled out canonicalising the corner order: a query point can sit
+ *  exactly on the facet, where the solid angle jumps by 4*pi, and there a micro-Angstrom decides
+ *  which side of a panel the point is on.  Nothing about this field tolerates approximate
+ *  identity of the query point, however small the approximation looks. */
 struct MemoKey
 {
-    std::array<double,14> v;
+    std::array<double,15> v;
     bool operator==(const MemoKey& o) const { return v == o.v; }
 };
 struct MemoHash
@@ -634,7 +677,10 @@ constexpr int memoShards= 256;
 struct MemoShard
 {
     std::unordered_map<MemoKey,GbFacet::TriangleWeights,MemoHash> table;
-    std::mutex mutex;
+    /*! Shared, because after the first few hundred states almost every lookup is a read and an
+     *  exclusive lock on each of them serialises a hundred threads against each other for no
+     *  reason. */
+    std::shared_mutex mutex;
 };
 MemoShard memoShards_[memoShards];
 std::atomic<long long> memoHits{0}, memoMisses{0};
@@ -684,7 +730,7 @@ void GbFacet::resetSolidAngleMemo(const Eigen::Vector3d& period1,
     std::lock_guard<std::mutex> guard(memoContextMutex);
     if (memoContextSet && memoContext == here) return;
     for (auto& shard : memoShards_) {
-        std::lock_guard<std::mutex> shardGuard(shard.mutex);
+        std::unique_lock<std::shared_mutex> shardGuard(shard.mutex);
         shard.table.clear();
     }
     memoEntries.store(0);
@@ -704,11 +750,28 @@ GbFacet::computeTriangleWeights(const Eigen::Vector3d& x, const int& face) const
     // tile their parent exactly so the solid angle is the same either way.
     const auto& cache= integrationCache;
     const int perFace= refinement*refinement;
+    const Eigen::Vector3d faceS= cache.faceVectorArea.row(face).transpose();
+    const Eigen::Vector3d faceC= cache.faceCentroid.row(face).transpose();
+    const double dipoleDistance= dipoleRadii > 0.0 ? dipoleRadii*cache.faceRadius(face) : -1.0;
+
     TriangleWeights result;
     for (int m= -imageShells; m <= imageShells; ++m)
         for (int n= -imageShells; n <= imageShells; ++n)
         {
             const Eigen::Vector3d y= x - (m*period1 + n*period2);
+
+            // Far enough for the dipole: one dot product, no subdivision, no transcendental.
+            if (dipoleDistance > 0.0) {
+                const Eigen::Vector3d rho= faceC - y;
+                const double R= rho.norm();
+                if (R > dipoleDistance) {
+                    const double omega= -rho.dot(faceS)/(R*R*R);
+                    result.omega+= omega;
+                    for (int k= 0; k < 3; ++k) result.w[k]+= omega/3.0;
+                    continue;
+                }
+            }
+
             if (std::abs(m) <= 1 && std::abs(n) <= 1)
                 for (int p= face*perFace; p < (face+1)*perFace; ++p) {
                     const double omega= panelSolidAngle(cache.Q0.row(p).transpose() - y,
@@ -763,10 +826,13 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
         for (int d= 0; d < 3; ++d) key.v[3 + 3*k + d]= corner[k](d);
     key.v[12]= static_cast<double>(imageShells);
     key.v[13]= static_cast<double>(refinement);
+    // The kernel used matters as much as the quadrature settings: entries computed with the
+    // exact form and with the dipole are different numbers for the same triangle and point.
+    key.v[14]= dipoleRadii;
 
-    MemoShard& shard= memoShards_[MemoHash()(key) % memoShards];
+        MemoShard& shard= memoShards_[MemoHash()(key) % memoShards];
     {
-        std::lock_guard<std::mutex> guard(shard.mutex);
+        std::shared_lock<std::shared_mutex> guard(shard.mutex);
         const auto found= shard.table.find(key);
         if (found != shard.table.end()) {
             memoHits.fetch_add(1, std::memory_order_relaxed);
@@ -807,7 +873,7 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
     const TriangleWeights computed= computeTriangleWeights(x, face);
     {
         static const long long capacity= memoCapacity();
-        std::lock_guard<std::mutex> guard(shard.mutex);
+        std::unique_lock<std::shared_mutex> guard(shard.mutex);
         if (memoEntries.load(std::memory_order_relaxed) < capacity
             && shard.table.emplace(key, computed).second)
             memoEntries.fetch_add(1, std::memory_order_relaxed);
@@ -882,6 +948,13 @@ int GbFacet::sideOf(const Eigen::Vector3d& x) const
 {
     // The soup only covers a 3x3 block of images, so bring the query point over the base cell.
     const Eigen::Vector3d folded = foldIntoCell(x);
+
+    // Above or below the whole sheet, the height settles it and no ray is needed -- see
+    // bandLow/bandHigh.  Most atoms of a crystal tens of Angstrom thick are in that position,
+    // and the ray casting below was 36% of box().
+    const double height = (folded - centroid).dot(planeNormal);
+    if (height > bandHigh) return  1;
+    if (height < bandLow)  return -1;
 
     // A ray that grazes an edge shared by two faces is counted by both of them, so its parity
     // comes out even whichever side the point is on.  That is not a rare accident: a cell holding
@@ -987,7 +1060,9 @@ Eigen::Vector3d GbFacet::displacement(const Eigen::Vector3d& x0) const
     // general only the *variation* of the displacement is left to the explicit shells.
     const double omegaSheet = solidAngle(x);
 
-    return (weighted + meanDisp * (omegaSheet - omega)) / (2.0 * M_PI);
+    const Eigen::Vector3d tailMean=
+        std::getenv("OILAB_FACET_TAIL_AREA") ? meanDisp : meanDispProjected;
+    return (weighted + tailMean * (omegaSheet - omega)) / (2.0 * M_PI);
 }
 
 double GbFacet::signedDistanceAlongNormal(const Eigen::Vector3d& x,

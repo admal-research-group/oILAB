@@ -81,6 +81,36 @@ public:
     inline static const bool reportMemoStatistics =
         std::getenv("OILAB_FACET_MEMO_STATS") != nullptr;
 
+    /*! \brief How far away, in face radii, an image has to be before its solid angle is taken
+     *  as a point dipole instead of the exact closed form.
+     *
+     *  Near the field point the exact form is the only thing that will do -- the solid angle is
+     *  strongly peaked, and the dipole is an expansion in (radius/distance)^2.  Far away the
+     *  expansion is excellent and costs a dot product instead of three square roots and an
+     *  atan2, and it needs no subdivision.
+     *
+     *  This is not the same thing as subtracting the dipole and restoring the tail in closed
+     *  form.  That was tried and it fails: the analytic total 2*pi*meanDispProjected is the
+     *  value of the dipole lattice sum only when every image is far from the field point, and
+     *  the L = 0 term goes as 1/h^2 for an atom sitting on the sheet.  It moved atoms by up to
+     *  6.7 A.  Replacing the kernel where it is accurate is safe; restoring a far-field constant
+     *  the near field never reaches is not.
+     *
+     *  Sixteen radii, chosen by measurement.  At K = 53 on one state the exact kernel gives a
+     *  maximum displacement error of 2.298e-4 A in 1887 ms and this gives 2.334e-4 A in 766 ms
+     *  -- indistinguishable, and 2.5 times faster.  Eight radii is too aggressive: it holds up
+     *  to K = 32 but puts a floor near 6e-4 A that grows with K, since ever more of the sum is
+     *  being approximated.  Four and two are worse still, 3.7e-3 and 1.3e-2.
+     *
+     *  The point of it is reach rather than speed: the image sum converges as 1/K -- measured
+     *  e(K) ~ 0.05 to 0.07 A / K depending on the state -- so 10^-3 A needs K around 70, and
+     *  cheap distant images are what makes that affordable.  Zero or negative uses the exact
+     *  form everywhere. */
+    inline static double dipoleRadii = [] {
+        const char* v= std::getenv("OILAB_FACET_DIPOLE_RADII");
+        return v ? std::atof(v) : 16.0;
+    }();
+
     /*! \brief What one triangle contributes to one query point, summed over every periodic image.
      *
      *  \p w are the coefficients of the triangle's three nodal displacements -- the field being
@@ -292,6 +322,15 @@ private:
 
         Eigen::MatrixXd normals;
         Eigen::VectorXd faceAreas;
+
+        /*! Per face: centroid, vector area S = 1/2 (B-A) x (C-A), and the radius of the
+         *  smallest sphere about the centroid holding the face.  Expanding the closed form
+         *  about the centroid gives N -> 2 (rho . S) and D -> 4 R^3, so
+         *  Omega -> -(rho . S)/R^3 -- the linear term vanishing because the centroid is where
+         *  it is, which makes the error second order in (radius / distance). */
+        Eigen::MatrixXd faceCentroid;
+        Eigen::MatrixXd faceVectorArea;
+        Eigen::VectorXd faceRadius;
     };
 
     /*! The closest-point structure behind sideOf() and signedDistanceAlongNormal().
@@ -338,8 +377,28 @@ private:
     /*! Centroid of the mesh vertices, used to fold a query point back over the base cell. */
     Eigen::Vector3d centroid;
 
+    /*! How far the surface reaches either side of \p centroid along \p planeNormal: the lowest
+     *  and highest signed height of any vertex.
+     *
+     *  sideOf() decides which side of the sheet a point is on by shooting rays upward along
+     *  planeNormal and counting crossings, which is the only way to answer it in general -- but
+     *  not for a point outside this band.  The sheet is piecewise linear between its vertices and
+     *  its periodic images are translated in plane only, so no part of it lies outside the band;
+     *  a point above it cannot be reached by an upward ray, and a point below it is crossed
+     *  exactly once.  Both answers follow from the height alone.
+     *
+     *  This is an exact short circuit, not an approximation, and it takes most of the queries:
+     *  the boundary occupies a couple of Angstrom of a crystal tens of Angstrom thick, and every
+     *  atom outside that band is classified by one dot product.  Measured at 35.7 -> 24.6
+     *  core-seconds of box() over a 1119-state sweep, with every state unchanged. */
+    double bandLow= 0.0, bandHigh= 0.0;
+
     /*! Area-weighted mean nodal displacement over one period cell. */
     Eigen::Vector3d meanDisp;
+
+    /*! The same mean weighted by projected rather than true area -- what the far-field tail
+     *  actually sees.  See the closure in displacement(). */
+    Eigen::Vector3d meanDispProjected;
 
     int refinement;
 

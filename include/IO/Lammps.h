@@ -21,6 +21,8 @@
 #endif
 #include <Eigen/Eigen>
 #include <iomanip>
+#include <atomic>
+#include <chrono>
 #ifdef OILAB_HAVE_LAMMPS_LIBRARY
 #include "library.h"
 #include <vector>
@@ -93,6 +95,42 @@ constexpr double vacuumThickness = 5.0;
  *  none of it physics.  Setting it false runs them as two invocations, which is the same
  *  calculation the slow way, and is how to check that claim. */
 constexpr bool bothRelaxationsInOneInvocation = true;
+
+/*! \brief Whether the free (untethered) relaxation is run alongside the tethered one.
+ *
+ *  The two relaxations are independent runs from the same configuration, so dropping the free
+ *  one removes very close to half the LAMMPS work.  A production sweep that only wants the
+ *  tethered structure -- the one that still represents the mesostate it was built from -- has
+ *  no use for it.
+ *
+ *  With this off, Relaxations::full is left at zero and the sortedByFull table is not written,
+ *  rather than quietly reporting the tethered figure twice.  OILAB_FREE_RELAXATION=0 turns it
+ *  off from the environment. */
+inline const bool runFreeRelaxation =
+    std::getenv("OILAB_FREE_RELAXATION") == nullptr
+    || std::string(std::getenv("OILAB_FREE_RELAXATION")) != "0";
+
+/*! Conjugate gradient, and how hard it is asked to work.
+ *
+ *  Conjugate gradient rather than fire or hftn: the structures start close to a minimum, which
+ *  is the case cg is good at, and it is what every energy quoted from this code so far was
+ *  produced with.
+ *
+ *  The tolerances were 1e-12.  Measured over a 1119-state sweep, 1e-10 costs 16% less wall clock
+ *  -- the mean relaxation drops from 144 steps to 113 -- and leaves the 100 lowest-energy states
+ *  within 5.8e-5 eV of where 1e-12 put them, which is far below anything physical.  Fifteen of
+ *  the 1119 move by more than 1e-4 eV and two by more than 1e-2: those are states whose free
+ *  relaxation is soft enough to fall into a neighbouring basin, and no tolerance short of exact
+ *  arithmetic settles which one is right.  1e-8 is a different matter and was rejected -- there
+ *  72 of the lowest 100 move, one of them by 1.37 eV.
+ *
+ *  The iteration cap was 100000 and is now 5000.  It binds on nothing: the longest relaxation
+ *  measured over that sweep took 756 steps at 1e-12, and fewer at 1e-10.  A cap that cannot be
+ *  reached is not a limit on the answer, only on how long a pathological state may run. */
+constexpr const char* minimizeStyle = "cg";
+constexpr const char* minimizeEnergyTolerance = "1e-10";
+constexpr const char* minimizeForceTolerance  = "1e-10";
+constexpr int minimizeMaxIterations = 5000;
 
 /*! Whether the energies go through the LAMMPS library rather than the `lmp` executable.
  *
@@ -358,8 +396,9 @@ void write_lammps_input_script(const std::string &filename,
     {
         // The groups are fixed at the moment they are defined, so relaxing here does not change
         // which atoms the GB and BULK sums run over -- only where those atoms sit.
-        file << "min_style       cg\n";
-        file << "minimize        1e-12 1e-12 100000 100000\n";
+        file << "min_style       " << minimizeStyle << "\n";
+        file << "minimize        " << minimizeEnergyTolerance << " " << minimizeForceTolerance
+             << " " << minimizeMaxIterations << " " << minimizeMaxIterations << "\n";
         file << "run                     0\n";
     };
     // One line of results, in the layout read_python_outfile() parses.  `mode` is "file" for the
@@ -420,7 +459,8 @@ void write_lammps_input_script(const std::string &filename,
         if (!minimized_dump_file.empty())
             file << "write_dump all custom " << minimized_dump_file << " id type x y z\n";
         file << "unfix           tether\n";
-        file << "minimize        1e-12 1e-12 100000 100000\n";
+        file << "minimize        " << minimizeEnergyTolerance << " " << minimizeForceTolerance
+             << " " << minimizeMaxIterations << " " << minimizeMaxIterations << "\n";
         file << "run                     0\n";
         file << "variable        peGBfree equal $(c_pe)\n";
         file << "variable        peBULKfree equal $(c_pebulk)\n";
@@ -531,6 +571,41 @@ std::vector<std::vector<double>> read_python_outfile(const std::string &path) {
  */
 #ifdef OILAB_HAVE_LAMMPS_LIBRARY
 /*! What one state's LAMMPS run reports back. */
+/*! \brief Whether each thread keeps one LAMMPS instance alive and reuses it.
+ *
+ *  `clear` destroys the pair style along with everything else, so a fresh instance per
+ *  relaxation re-reads the EAM file every time.  That file is 706 kB of ASCII and parsing it
+ *  costs 33.8 ms -- measured -- against about 1000 ms of LAMMPS work per state, and it happens
+ *  twice per state because the two relaxations are independent.  Opening the instance is a
+ *  further 7.7 ms each.
+ *
+ *  Most of that is recovered whatever this is set to, because the instance now survives the two
+ *  relaxations OF ONE STATE: the second reuses the box and the pair style instead of clearing
+ *  them, so the file is parsed once per state rather than twice.  That is worth about 5% and is
+ *  bit-for-bit deterministic.
+ *
+ *  Keeping the instance ACROSS states as well -- what this flag does -- is worth a further 2%
+ *  and costs reproducibility, so it is off.  delete_atoms and create_atoms leave the surviving
+ *  atoms in an order that depends on what that thread did before, and with 100 threads that
+ *  depends on scheduling: two runs of the same sweep then disagree on a couple of states in the
+ *  last digits of the freely relaxed energy, measured at 2.2e-7 eV over 1119 states.  Physically
+ *  nothing, but a sweep that cannot reproduce itself is a poor thing to debug against, and 2% is
+ *  not the price at which to sell that.  OILAB_LAMMPS_REUSE=1 turns it on. */
+inline const bool reuseLammpsInstance =
+    std::getenv("OILAB_LAMMPS_REUSE") == nullptr
+    || std::string(std::getenv("OILAB_LAMMPS_REUSE")) != "0";
+
+/*! One thread's LAMMPS instance, with the potential already read.  Closed when the thread ends. */
+struct LammpsSession
+{
+    void* handle= nullptr;
+    std::string potential;
+    std::vector<double> cell;      //!< the bounds create_box was given, to know when to move them
+    bool stateBuilt= false;        //!< whether a previous state's objects are still defined
+    bool tetherDefined= false;     //!< whether that state left a spring/self fix behind
+    ~LammpsSession() { if (handle) lammps_close(handle); }
+};
+
 struct LammpsResult
 {
     double density= 0.0, gbEnergy= 0.0, spring= 0.0, unrelaxed= 0.0, freeEnergy= 0.0;
@@ -583,16 +658,21 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         }
     }
 
-    void* lmp= nullptr;
-    {
-        // One instance per state, opened and closed here.  Keeping an instance alive across
-        // states was measured too: identical energies, but only a further half a percent, which
-        // does not pay for having to reason about what the previous state left behind.  The open
-        // is serialised because the first one through initialises library-wide state.
+    // The instance is this thread's, kept between states so the potential is parsed once -- see
+    // reuseLammpsInstance.  The open is serialised because the first one through initialises
+    // library-wide state.
+    static thread_local LammpsSession session;
+    const bool reuse= reuseLammpsInstance;
+    if (session.handle != nullptr && (!reuse || session.potential != potentialFile)) {
+        lammps_close(session.handle);
+        session= LammpsSession{};
+    }
+    if (session.handle == nullptr) {
         const char* startup[]= {"lmp", "-log", "none", "-screen", "none"};
         #pragma omp critical(oilabLammpsOpen)
-        lmp= lammps_open_no_mpi(5, const_cast<char**>(startup), nullptr);
+        session.handle= lammps_open_no_mpi(5, const_cast<char**>(startup), nullptr);
     }
+    void* lmp= session.handle;
     if (lmp == nullptr) throw std::runtime_error("could not open a LAMMPS instance");
 
     const auto fail= [&](const std::string& what)
@@ -605,7 +685,10 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
             message+= ": ";
             message+= buffer;
         }
+        // The instance is this thread's and is about to be abandoned; clear the session too, so
+        // the destructor does not close it a second time and the next state opens a fresh one.
         lammps_close(lmp);
+        session= LammpsSession{};
         throw std::runtime_error(message);
     };
     const auto run= [&](const std::string& commands)
@@ -626,24 +709,70 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
     // wants both relaxations calls it twice: `clear` and a fresh set of atoms put the second
     // relaxation back at the configuration the construction produced, rather than at wherever
     // the first one left the atoms.
+    // Undo what the previous state defined on this instance.  Fixes and computes go before the
+    // groups they name, groups before the regions that made them, and the atoms last; nothing
+    // survives but the box and the pair style.  Redefining any of these while the old one still
+    // exists is an error in LAMMPS, so this is not optional housekeeping.
+    const auto teardown= [&]()
+    {
+        if (session.tetherDefined) { run("unfix tether\ngroup TETHERGRP delete\n"
+                                        "region TETHERREG delete\n");
+                                     session.tetherDefined= false; }
+        run("uncompute pe\nuncompute pebulk\nuncompute peratom\nuncompute peratombulk\n"
+            "group GB delete\ngroup BULK delete\n"
+            "region GB delete\nregion BULKLO delete\nregion BULKHI delete\n"
+            "region BULK delete\n"
+            "delete_atoms group all compress no\n");
+    };
+
     const auto setup= [&]()
     {
         std::ostringstream o;
-        o << std::setprecision(15)
-          << "clear\n"
-             "units metal\n"
-             // Periodic in the boundary plane, open along the normal.  `m` rather than `f`: the
-             // box shrink-wraps to the atoms but never inside these bounds, so the vacuum is kept
-             // and an atom the deformation pushes outward is followed rather than lost.
-             "boundary m p p\n"
-             "atom_style atomic\n"
-             "neighbor 1.0 bin\n"
-             "neigh_modify every 1 delay 2 check yes\n"
-             "region cell block " << box[0][0] << " " << box[0][1] << " "
-                                  << box[1][0] << " " << box[1][1] << " "
-                                  << box[2][0] << " " << box[2][1] << " units box\n"
-             "create_box 3 cell\n";
-        run(o.str());
+        if (session.handle != nullptr && session.stateBuilt) teardown();
+        if (!session.cell.empty())
+        {
+            // Same instance, and the cell only moves when a state overshoots it; change_box when
+            // it has.
+            const std::vector<double> wanted{box[0][0],box[0][1],box[1][0],
+                                             box[1][1],box[2][0],box[2][1]};
+            if (session.cell != wanted) {
+                o << std::setprecision(15)
+                  << "change_box all x final " << box[0][0] << " " << box[0][1]
+                  << " y final " << box[1][0] << " " << box[1][1]
+                  << " z final " << box[2][0] << " " << box[2][1] << " units box\n";
+                run(o.str());
+                o.str(""); o.clear();
+                session.cell= wanted;
+            }
+        }
+        else
+        {
+            o << std::setprecision(15)
+              << "units metal\n"
+                 // Periodic in the boundary plane, open along the normal.  `m` rather than `f`:
+                 // the box shrink-wraps to the atoms but never inside these bounds, so the vacuum
+                 // is kept and an atom the deformation pushes outward is followed, not lost.
+                 "boundary m p p\n"
+                 "atom_style atomic\n"
+                 "neighbor 1.0 bin\n"
+                 "neigh_modify every 1 delay 2 check yes\n"
+                 "region cell block " << box[0][0] << " " << box[0][1] << " "
+                                      << box[1][0] << " " << box[1][1] << " "
+                                      << box[2][0] << " " << box[2][1] << " units box\n"
+                 "create_box 3 cell\n"
+                 "pair_style eam/alloy\n"
+                 // Three species: grain A, grain B, and the atoms the mesostate brings into
+                 // coincidence.  All are the same element, so every type maps to the same entry
+                 // of the potential -- which is also where the masses come from, the atoms having
+                 // been handed over without any.  The third species exists only so the boundary
+                 // can be picked out of the output; the overlap removal fuses each coincident
+                 // pair and the survivor keeps the species.
+                 "pair_coeff * * " << potentialFile << " Cu Cu Cu\n";
+            run(o.str());
+            o.str(""); o.clear();
+            session.cell= {box[0][0],box[0][1],box[1][0],box[1][1],box[2][0],box[2][1]};
+            session.potential= potentialFile;
+        }
 
         // Shrink-wrap flag set, matching what read_data allows: x is open, and an atom sitting
         // out in the vacuum belongs to the state as much as any other.  Nothing may go missing,
@@ -656,16 +785,9 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
                  + " atoms");
 
         o.str(""); o.clear();
+        o.str(""); o.clear();
         o << std::setprecision(15)
-          << "pair_style eam/alloy\n"
-             // Three species: grain A, grain B, and the atoms the mesostate brings into
-             // coincidence.  All are the same element, so every type maps to the same entry of
-             // the potential -- which is also where the masses come from, the atoms having been
-             // handed over without any.  The third species exists only so the boundary the
-             // construction built can be picked out of the output; the overlap removal below
-             // fuses each coincident pair and the survivor keeps the species.
-             "pair_coeff * * " << potentialFile << " Cu Cu Cu\n"
-             "delete_atoms overlap " << lammpsOverlapCutoff << " all all\n"
+          << "delete_atoms overlap " << lammpsOverlapCutoff << " all all\n"
              // Everything is measured from the middle of the box, which is where the construction
              // puts the boundary, so a structure sitting a little to one side is measured alike.
              "variable xmid equal (xlo+xhi)/2\n"
@@ -706,6 +828,7 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
              "variable GBeneUnmin equal (${peGBunmin}-(${peBULKunmin}/${atomsBULKunmin})"
              "*${atomsGBunmin})\n";
         run(o.str());
+        session.stateBuilt= true;
     };
     // Restrain the atoms near the boundary to the positions the construction gave them, so the
     // relaxation cannot carry the mesostate away from the state it represents.  spring/self
@@ -721,11 +844,22 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
              "group TETHERGRP region TETHERREG\n"
              "fix tether TETHERGRP spring/self " << tetherStiffness << "\n";
         run(o.str());
+        session.tetherDefined= true;
     };
     // The groups were fixed when they were defined, so relaxing does not change which atoms the
     // GB and BULK sums run over -- only where those atoms sit.
+    // OILAB_NO_MINIMIZE evaluates the configuration as it stands instead of relaxing it, for
+    // separating the cost of the minimisation from everything else LAMMPS does per state.
+    static const bool skipMinimize= std::getenv("OILAB_NO_MINIMIZE") != nullptr;
     const auto relax= [&]()
-    { run("min_style cg\nminimize 1e-12 1e-12 100000 100000\nrun 0\n"); };
+    {
+        if (skipMinimize) { run("run 0\n"); return; }
+        std::ostringstream m;
+        m << "min_style " << minimizeStyle << "\nminimize "
+          << minimizeEnergyTolerance << " " << minimizeForceTolerance << " "
+          << minimizeMaxIterations << " " << minimizeMaxIterations << "\nrun 0\n";
+        run(m.str());
+    };
     const auto snapshot= [&](const std::string& path)
     {
         if (!path.empty()) run("write_dump all custom " + path + " id type x y z\n");
@@ -758,10 +892,12 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         result.density  = value("atomsGB");
         snapshot(tetheredDumpFile);
 
-        setup();
-        relax();
-        result.freeEnergy= boundaryEnergy();
-        snapshot(freeDumpFile);
+        if (runFreeRelaxation) {
+            setup();
+            relax();
+            result.freeEnergy= boundaryEnergy();
+            snapshot(freeDumpFile);
+        }
     }
     else
     {
@@ -775,7 +911,7 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         result.density  = value("atomsGB");
         snapshot(tetheredDumpFile);
     }
-    lammps_close(lmp);
+    if (!reuse) { lammps_close(lmp); session= LammpsSession{}; }
     return result;
 }
 #endif

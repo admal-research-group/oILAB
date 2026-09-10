@@ -557,7 +557,7 @@ int main()
     VectorDimD gbNormal(-3,1,0);                        // Miller indices
 	//VectorDimD gbNormal(-5,2,0);
     //VectorDimD gbNormal(-4,1,0);
-    int heightScaling= 4;
+    int heightScaling= 6;
 
     /*! The least the crystal may measure along the boundary normal, in Angstrom.
      *
@@ -576,7 +576,7 @@ int main()
      *  box is this plus vacuumThickness at each end. */
     const double minimumCrystalThickness= 50.0;
 	int periodScaling= 1;
-	int axisScaling= 3;
+	int axisScaling= 2;
 
 
     // enumerateStates: build every mesostate the ensemble's (t,s) pairs admit.  Set it false to
@@ -1594,6 +1594,7 @@ int main()
                                              {RankBy::Tethered,"T"},
                                              {RankBy::Full,"F"}})
                 {
+                    if (by == RankBy::Full && !runFreeRelaxation) continue;
                     std::vector<const Surveyed*> ordered= everyState;
                     std::stable_sort(ordered.begin(), ordered.end(),
                                      [by](const Surveyed* a, const Surveyed* b)
@@ -1687,7 +1688,9 @@ int main()
                           << std::endl;
                 writeRanking("Unrelaxed", RankBy::Unrelaxed);
                 writeRanking("Tethered",  RankBy::Tethered);
-                writeRanking("Full",      RankBy::Full);
+                // Only if there is a free-relaxation energy to order by; without one the
+                // column is zero for every state and the table would rank nothing.
+                if (runFreeRelaxation) writeRanking("Full", RankBy::Full);
             }
 
             // ================================================================ PASS 2
