@@ -2,6 +2,7 @@
 #include "../../include/Lattices/GbMesoStateEnsemble.h"
 #include "../../include/MonteCarlo/CanonicalTP.h"
 #include "../../include/MonteCarlo/MonteCarlo.h"
+#include <filesystem>
 #include <numbers>
 #include <omp.h>
 
@@ -96,10 +97,10 @@ void runMonteCarlo(const double &a0, const double &temperature,
   GbMesoStateEnsemble<3> ensemble(gb, rAxisA, cslVectors, bScaling);
   const double kb = 8.61733e-5; // in eV/K
 
-  std::string potentialName = "Cu_mishin1.eam.alloy";
-  std::string lmpLocation =
-      "/Users/Nikhil/Documents/Academic/Software/lammps-15May15/src/lmp_serial";
-  CanonicalTP<XTuplet, GbMesoState<3>> canonicalTP(lmpLocation, potentialName,
+  // LAMMPS runs in this process; the only thing it needs from here is the potential.
+  std::string potentialName =
+      std::filesystem::absolute("Cu_mishin1.eam.alloy").string();
+  CanonicalTP<XTuplet, GbMesoState<3>> canonicalTP(potentialName,
                                                    kb * temperature, filename);
   MonteCarlo<XTuplet, GbMesoState<3>, GbMesoStateEnsemble<3>,
              CanonicalTP<XTuplet, GbMesoState<3>>>

@@ -2,6 +2,7 @@
 #include "../../include/Lattices/GbMesoStateEnsemble.h"
 #include "../../include/MonteCarlo/LandauWangTP.h"
 #include "../../include/MonteCarlo/MonteCarlo.h"
+#include <filesystem>
 
 using namespace oILAB;
 
@@ -130,12 +131,12 @@ int main() {
     }
      */
 
-    std::string potentialName = "Cu_mishin1.eam.alloy";
-    std::string lmpLocation = "/Users/Nikhil/Documents/Academic/Software/"
-                              "lammps-15May15/src/lmp_serial";
+    // LAMMPS runs in this process; the only thing it needs from here is the potential.
+    std::string potentialName =
+        std::filesystem::absolute("Cu_mishin1.eam.alloy").string();
     // LandauWangTP<XTuplet,GbMesoState<3>> landauWang({0,20,30},{0.7,1.0,10});
     LandauWangTP<XTuplet, GbMesoState<3>> landauWang(
-        {0, 20, 30}, {-40, 16, 57}, lmpLocation, potentialName);
+        {0, 20, 30}, {-40, 16, 57}, potentialName);
     MonteCarlo<XTuplet, GbMesoState<3>, GbMesoStateEnsemble<3>,
                LandauWangTP<XTuplet, GbMesoState<3>>>
         mc(ensemble, landauWang);

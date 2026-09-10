@@ -16,20 +16,27 @@ add_library(oILAB SHARED    Lattices/BiCrystal.cpp
                             Lattices/GbFacet.cpp)
 
 
-# LAMMPS, linked rather than launched.  The energies were computed by spawning the `lmp`
+# LAMMPS, linked rather than launched.  The energies were once computed by spawning the `lmp`
 # executable per state; going through the library gives the same answers -- verified
-# byte-for-byte over 60 states -- without the process.  Optional: without it the code falls back
-# to spawning, so a machine with no LAMMPS development package still builds.
+# byte-for-byte over 60 states -- without the process, and lets a thread hold one instance open
+# so the potential file is parsed once per thread instead of once per relaxation.
+#
+# Required, not optional.  The spawning path is gone: keeping it meant every caller down to the
+# application carried the path of an `lmp` binary it never ran, and a machine missing that binary
+# computed no energies at all even with the library linked in.  Failing here is the honest place
+# to say the LAMMPS development package is missing.
 find_library(LAMMPS_LIBRARY NAMES lammps)
 find_path(LAMMPS_INCLUDE_DIR NAMES library.h PATH_SUFFIXES lammps)
-if(LAMMPS_LIBRARY AND LAMMPS_INCLUDE_DIR)
-    message(STATUS "LAMMPS library found: ${LAMMPS_LIBRARY}")
-    target_compile_definitions(oILAB PUBLIC OILAB_HAVE_LAMMPS_LIBRARY)
-    target_include_directories(oILAB PUBLIC ${LAMMPS_INCLUDE_DIR})
-    target_link_libraries(oILAB PUBLIC ${LAMMPS_LIBRARY})
-else()
-    message(STATUS "LAMMPS library not found; energies will spawn the lmp executable")
+if(NOT LAMMPS_LIBRARY OR NOT LAMMPS_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "LAMMPS library not found.  Install a LAMMPS development package providing liblammps "
+        "and library.h, or point CMake at one with -DLAMMPS_LIBRARY=<path to liblammps> "
+        "-DLAMMPS_INCLUDE_DIR=<directory holding library.h>.")
 endif()
+message(STATUS "LAMMPS library found: ${LAMMPS_LIBRARY}")
+target_compile_definitions(oILAB PUBLIC OILAB_HAVE_LAMMPS_LIBRARY)
+target_include_directories(oILAB PUBLIC ${LAMMPS_INCLUDE_DIR})
+target_link_libraries(oILAB PUBLIC ${LAMMPS_LIBRARY})
 
 # Conditionally apply the export property for MSVC on Windows
 if(MSVC)

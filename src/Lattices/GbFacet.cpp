@@ -488,6 +488,60 @@ Eigen::MatrixXd GbFacet::deformedVertices() const
     return meshData.vertices + meshData.displacements;
 }
 
+namespace {
+/*! \brief Gives each distinct tuple of coordinates a small integer, exactly.
+ *
+ *  The memo used to key on fifteen doubles: hashing 120 bytes and comparing them on every
+ *  lookup, with an entry big enough that the table ran to a few hundred megabytes and every
+ *  lookup was a cache miss.  At a hundred threads that bandwidth, not the arithmetic, was what
+ *  the field cost.
+ *
+ *  So the two things a key identifies -- the folded query point and the triangle -- are interned
+ *  to integers instead, and the key becomes one 64-bit word.  The comparison is exact, which
+ *  matters: quantising the coordinates was tried and moved 250 of 1119 states, because a query
+ *  point sitting on the facet has a solid angle that jumps by 4*pi and a micro-Angstrom decides
+ *  which side of a panel it is on.
+ *
+ *  The hashing does not disappear, it moves somewhere it is amortised.  A triangle is interned
+ *  once when its facet is built and reused by every atom, and a query point once per
+ *  displacement() call and reused by every triangle of the facet. */
+template<int N>
+class Interner
+{
+public:
+    int identify(const std::array<double,N>& value)
+    {
+        {
+            std::shared_lock<std::shared_mutex> guard(mutex_);
+            const auto found= table_.find(value);
+            if (found != table_.end()) return found->second;
+        }
+        std::unique_lock<std::shared_mutex> guard(mutex_);
+        const auto [entry, inserted]= table_.emplace(value, static_cast<int>(table_.size()));
+        return entry->second;
+    }
+    void clear() { std::unique_lock<std::shared_mutex> guard(mutex_); table_.clear(); }
+    std::size_t size() const
+    { std::shared_lock<std::shared_mutex> guard(mutex_); return table_.size(); }
+private:
+    struct Hash {
+        std::size_t operator()(const std::array<double,N>& a) const {
+            std::size_t h= 1469598103934665603ULL;
+            for (const double d : a) {
+                std::size_t b= 0; std::memcpy(&b, &d, sizeof b);
+                h= (h ^ b) * 1099511628211ULL;
+            }
+            return h;
+        }
+    };
+    std::unordered_map<std::array<double,N>,int,Hash> table_;
+    mutable std::shared_mutex mutex_;
+};
+Interner<3> pointInterner;
+Interner<9> triangleInterner;
+Interner<3> settingsInterner;
+} // namespace
+
 GbFacet::IntegrationCache GbFacet::build_integration_cache() const
 {
     // Once per facet: the memo holds weights computed for one set of periods and one quadrature,
@@ -523,12 +577,18 @@ GbFacet::IntegrationCache GbFacet::build_integration_cache() const
     cache.faceVectorArea = 0.5 * Cross;
     cache.faceCentroid   = (P0 + P1 + P2) / 3.0;
     cache.faceRadius.resize(P0.rows());
+    cache.faceIdentity.resize(P0.rows());
     for (int f = 0; f < P0.rows(); ++f) {
         const Eigen::RowVector3d c = cache.faceCentroid.row(f);
         cache.faceRadius(f) = std::max({ (P0.row(f)-c).norm(),
                                          (P1.row(f)-c).norm(),
                                          (P2.row(f)-c).norm() });
+        // Once per face per mesostate, not once per face per atom.
+        cache.faceIdentity(f) = triangleInterner.identify(
+            { P0(f,0),P0(f,1),P0(f,2), P1(f,0),P1(f,1),P1(f,2), P2(f,0),P2(f,1),P2(f,2) });
     }
+    settingsIdentity = settingsInterner.identify(
+        { static_cast<double>(imageShells), static_cast<double>(refinement), dipoleRadii });
     cache.faceMeanDisp = (D0 + D1 + D2) / 3.0;
 
     // Subdivide every face for the quadrature.  The triangulation only joins the nodes, so its
@@ -646,37 +706,48 @@ inline double panelSolidAngle(const Eigen::Vector3d& a,
  *  Sharded, because a sweep runs this from every thread at once and a single lock would serialise
  *  the one part of the field that is cheap.  Read-mostly after the first few hundred states.
  */
-/*! The key: the coordinates themselves, exactly, not a hash and not rounded.
+
+/*! The key: three interned identities, packed into one word.
  *
- *  Quantising to 1e-6 A was tried, to halve the entry and to fold together points that agree to
- *  within a micro-Angstrom.  It changed 250 of 1119 states, one of them by 2058 eV.  The reason
- *  is the same singularity that ruled out canonicalising the corner order: a query point can sit
- *  exactly on the facet, where the solid angle jumps by 4*pi, and there a micro-Angstrom decides
- *  which side of a panel the point is on.  Nothing about this field tolerates approximate
- *  identity of the query point, however small the approximation looks. */
+ *  The identities are assigned by exact comparison of the coordinates -- see Interner.
+ *  Quantising them instead, to 1e-6 A, was tried and changed 250 of 1119 states, one by 2058 eV,
+ *  for the same reason that ruled out canonicalising the corner order: a query point can sit
+ *  exactly on the facet, where the solid angle jumps by 4*pi, and a micro-Angstrom decides which
+ *  side of a panel it is on.  Nothing here tolerates approximate identity of the query point,
+ *  however small the approximation looks. */
 struct MemoKey
 {
-    std::array<double,15> v;
+    std::uint64_t v;
     bool operator==(const MemoKey& o) const { return v == o.v; }
 };
+/*! Packs the three identities into one word: 24 bits of query point, 24 of triangle, 16 of
+ *  quadrature settings.  Sixteen million of each is far past anything a sweep produces, and the
+ *  packing is checked rather than assumed. */
+inline MemoKey packKey(int point, int triangle, int settings)
+{
+    if (point < 0 || point >= (1<<24) || triangle < 0 || triangle >= (1<<24)
+        || settings < 0 || settings >= (1<<16))
+        throw std::runtime_error("GbFacet: the solid-angle memo has run out of identities");
+    return MemoKey{ (static_cast<std::uint64_t>(point) << 40)
+                  | (static_cast<std::uint64_t>(triangle) << 16)
+                  | static_cast<std::uint64_t>(settings) };
+}
 struct MemoHash
 {
-    std::size_t operator()(const MemoKey& k) const
+    std::size_t operator()(const std::uint64_t key) const
     {
-        std::size_t h= 1469598103934665603ULL;
-        for (const double d : k.v) {
-            std::size_t b= 0;
-            static_assert(sizeof(double) == sizeof(std::size_t), "");
-            std::memcpy(&b, &d, sizeof b);
-            h= (h ^ b) * 1099511628211ULL;
-        }
-        return h;
+        // One word in, so a single mix rather than a loop.
+        std::uint64_t h= key;
+        h ^= h >> 33; h *= 0xff51afd7ed558ccdULL;
+        h ^= h >> 33; h *= 0xc4ceb9fe1a85ec53ULL;
+        h ^= h >> 33;
+        return static_cast<std::size_t>(h);
     }
 };
 constexpr int memoShards= 256;
 struct MemoShard
 {
-    std::unordered_map<MemoKey,GbFacet::TriangleWeights,MemoHash> table;
+    std::unordered_map<std::uint64_t,GbFacet::TriangleWeights,MemoHash> table;
     /*! Shared, because after the first few hundred states almost every lookup is a read and an
      *  exclusive lock on each of them serialises a hundred threads against each other for no
      *  reason. */
@@ -733,6 +804,9 @@ void GbFacet::resetSolidAngleMemo(const Eigen::Vector3d& period1,
         std::unique_lock<std::shared_mutex> shardGuard(shard.mutex);
         shard.table.clear();
     }
+    pointInterner.clear();
+    triangleInterner.clear();
+    settingsInterner.clear();
     memoEntries.store(0);
     memoHits.store(0);
     memoMisses.store(0);
@@ -792,16 +866,15 @@ GbFacet::computeTriangleWeights(const Eigen::Vector3d& x, const int& face) const
 }
 
 GbFacet::TriangleWeights
-GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
+GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face,
+                         const int& pointIdentity) const
 {
     if (!memoiseSolidAngles) return computeTriangleWeights(x, face);
 
     const auto& cache= integrationCache;
-    const Eigen::Vector3d corner[3]= { cache.F0.row(face).transpose(),
-                                       cache.F1.row(face).transpose(),
-                                       cache.F2.row(face).transpose() };
 
-    // The corners go in exactly as the mesh lists them, NOT rotated to a canonical start.
+    // The triangle's identity is the one its facet was given at construction, from the corners
+    // exactly as the mesh lists them, NOT rotated to a canonical start.
     //
     // Rotating would be sound on paper and worth about 60% more reuse: a cyclic rotation is an
     // even permutation, the closed-form solid angle is cyclically invariant, and the subdivision
@@ -820,20 +893,14 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
     // memo a pure speed change.  See also displacement(), where a query point landing on a NODE
     // is caught and answered from the nodal value -- the same singularity, in the one place it
     // can be resolved.
-    MemoKey key;
-    for (int d= 0; d < 3; ++d) key.v[d]= x(d);
-    for (int k= 0; k < 3; ++k)
-        for (int d= 0; d < 3; ++d) key.v[3 + 3*k + d]= corner[k](d);
-    key.v[12]= static_cast<double>(imageShells);
-    key.v[13]= static_cast<double>(refinement);
-    // The kernel used matters as much as the quadrature settings: entries computed with the
-    // exact form and with the dipole are different numbers for the same triangle and point.
-    key.v[14]= dipoleRadii;
+    // The settings are in the key too: entries computed with the exact kernel and with the
+    // dipole, or at different shell counts, are different numbers for the same triangle.
+    const MemoKey key= packKey(pointIdentity, cache.faceIdentity(face), settingsIdentity);
 
-        MemoShard& shard= memoShards_[MemoHash()(key) % memoShards];
+    MemoShard& shard= memoShards_[MemoHash()(key.v) % memoShards];
     {
         std::shared_lock<std::shared_mutex> guard(shard.mutex);
-        const auto found= shard.table.find(key);
+        const auto found= shard.table.find(key.v);
         if (found != shard.table.end()) {
             memoHits.fetch_add(1, std::memory_order_relaxed);
             const TriangleWeights& result= found->second;
@@ -844,25 +911,12 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
                     worst= std::max(worst, std::abs(direct.w[k] - result.w[k]));
                 if (worst > 1e-9) {
                     static std::atomic<int> shown{0};
-                    if (shown.fetch_add(1) < 6) {
+                    if (shown.fetch_add(1) < 6)
                         std::fprintf(stderr,
-                          "\n[memo MISMATCH] worst %.3e  shells=%d refine=%d\n"
-                          "   x       %.12f %.12f %.12f\n"
-                          "   corner0 %.12f %.12f %.12f\n"
-                          "   corner1 %.12f %.12f %.12f\n"
-                          "   corner2 %.12f %.12f %.12f\n"
-                          "   omega   memo %.12f  direct %.12f\n"
-                          "   w       memo %.9f %.9f %.9f\n"
-                          "           direct %.9f %.9f %.9f\n",
-                          worst, imageShells, refinement,
-                          x(0),x(1),x(2),
-                          corner[0](0),corner[0](1),corner[0](2),
-                          corner[1](0),corner[1](1),corner[1](2),
-                          corner[2](0),corner[2](1),corner[2](2),
-                          result.omega, direct.omega,
-                          result.w[0],result.w[1],result.w[2],
-                          direct.w[0],direct.w[1],direct.w[2]);
-                    }
+                          "\n[memo MISMATCH] worst %.3e  point %d  triangle %d  settings %d\n"
+                          "   omega memo %.12f  direct %.12f\n",
+                          worst, pointIdentity, cache.faceIdentity(face), settingsIdentity,
+                          result.omega, direct.omega);
                 }
             }
             return result;
@@ -875,7 +929,7 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face) const
         static const long long capacity= memoCapacity();
         std::unique_lock<std::shared_mutex> guard(shard.mutex);
         if (memoEntries.load(std::memory_order_relaxed) < capacity
-            && shard.table.emplace(key, computed).second)
+            && shard.table.emplace(key.v, computed).second)
             memoEntries.fetch_add(1, std::memory_order_relaxed);
     }
     return computed;
@@ -1043,9 +1097,12 @@ Eigen::Vector3d GbFacet::displacement(const Eigen::Vector3d& x0) const
     // OILAB_FACET_MEMO=0 selects the original order for comparison.
     Eigen::Vector3d weighted = Eigen::Vector3d::Zero();
     double omega = 0.0;
+    // One interning of the query point for the whole facet, reused by every triangle.
+    const int pointIdentity = memoiseSolidAngles
+        ? pointInterner.identify({x(0), x(1), x(2)}) : 0;
     for (int f = 0; f < meshData.faces.rows(); ++f)
     {
-        const TriangleWeights tw = triangleWeights(x, f);
+        const TriangleWeights tw = triangleWeights(x, f, pointIdentity);
         for (int k = 0; k < 3; ++k)
             weighted += tw.w[k] * meshData.displacements.row(meshData.faces(f,k)).transpose();
         omega += tw.omega;

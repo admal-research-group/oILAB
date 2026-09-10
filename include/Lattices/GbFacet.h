@@ -331,6 +331,11 @@ private:
         Eigen::MatrixXd faceCentroid;
         Eigen::MatrixXd faceVectorArea;
         Eigen::VectorXd faceRadius;
+
+        /*! Each face's identity as a small integer -- see the interning in GbFacet.cpp.
+         *  Assigned once when the facet is built, so the nine coordinates are hashed once per
+         *  face per mesostate instead of once per face per atom. */
+        Eigen::VectorXi faceIdentity;
     };
 
     /*! The closest-point structure behind sideOf() and signedDistanceAlongNormal().
@@ -364,6 +369,14 @@ private:
     MeshBundle bundle;
 
     MeshIntegrationData meshData;
+
+    /*! This facet's quadrature settings as a small integer, for the memo key.
+     *
+     *  Declared BEFORE integrationCache deliberately.  Members are initialised in declaration
+     *  order, and build_integration_cache() -- which runs while integrationCache is being
+     *  initialised -- assigns this; declared after, its own initialiser would run second and
+     *  wipe the value.  Mutable because that function is const. */
+    mutable int settingsIdentity= 0;
 
     IntegrationCache integrationCache;
 
@@ -404,6 +417,8 @@ private:
 
     int imageShells;
 
+
+
     IntegrationCache build_integration_cache() const;
 
     /*! Translates \p x by whole periods so that it sits over the base cell.  The field is
@@ -422,7 +437,8 @@ private:
 
     /*! The image sum for one triangle at one query point, from the memo if it is there.
      *  \p x must already be folded into the base cell. */
-    TriangleWeights triangleWeights(const Eigen::Vector3d& x, const int& face) const;
+    TriangleWeights triangleWeights(const Eigen::Vector3d& x, const int& face,
+                                    const int& pointIdentity) const;
 
     /*! The same sum, computed rather than looked up. */
     TriangleWeights computeTriangleWeights(const Eigen::Vector3d& x, const int& face) const;

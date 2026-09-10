@@ -12,9 +12,9 @@ namespace oILAB {
 
 template <typename StateType, typename SystemType>
 CanonicalTP<StateType, SystemType>::CanonicalTP(
-    const std::string &lmpLocation, const std::string &potentialName,
+    const std::string &potentialName,
     const double &temperature, const std::string &filename)
-    : lmpLocation(lmpLocation), potentialName(potentialName),
+    : potentialName(potentialName),
       temperature(temperature), countTP(0) {
   if (!filename.empty())
     output.open(filename);
@@ -31,7 +31,7 @@ CanonicalTP<StateType, SystemType>::CanonicalTP(
         const auto& proposedSystem= proposedStateSystem.second;
 
         if(countTP==0) {
-            const auto &temp = currentSystem.densityEnergy(lmpLocation, potentialName, false);
+            const auto &temp = currentSystem.densityEnergy(potentialName, false);
             currentDensity = std::get<0>(temp);
             currentEnergy = std::get<1>(temp);
             stateEnergyMap[currentState] = currentEnergy;
@@ -50,7 +50,7 @@ CanonicalTP<StateType, SystemType>::CanonicalTP(
             proposedEnergy = stateEnergyMap.at(proposedState);
         }
         else {
-            const auto& temp= proposedSystem.densityEnergy(lmpLocation, potentialName, false);
+            const auto& temp= proposedSystem.densityEnergy(potentialName, false);
             proposedDensity= std::get<0>(temp);
             proposedEnergy= std::get<1>(temp);
             //proposedEnergy = proposedSystem.energy();

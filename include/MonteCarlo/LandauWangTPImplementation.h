@@ -15,15 +15,13 @@ namespace oILAB {
 /* ---------------------------------------------------*/
     template<typename StateType, typename SystemType>
     LandauWangTP<StateType,SystemType>::LandauWangTP(const std::tuple<double,double,int>& energyLimits,
-                                                     const std::string& lmpLocation,
                                                      const std::string& potentialName):
-            LandauWangTP(energyLimits,{0.0,1.0,1},lmpLocation,potentialName)
+            LandauWangTP(energyLimits,{0.0,1.0,1},potentialName)
     {}
 
     template<typename StateType, typename SystemType>
     LandauWangTP<StateType,SystemType>::LandauWangTP(const std::tuple<double,double,int>& energyLimits,
                                                      const std::tuple<double,double,int>& densityLimits,
-                                                     const std::string& lmpLocation,
                                                      const std::string& potentialName) try:
             exponentialRegime(true),
             f(exp(1.0)),
@@ -36,7 +34,6 @@ namespace oILAB {
             numberOfDensityStates(std::get<2>(densityLimits)),
             histogram(Eigen::MatrixXi::Zero(numberOfEnergyStates,numberOfDensityStates)),
             stateDensityEnergyMap(getStateDensityEnergyMap()),
-            lmpLocation(lmpLocation),
             potentialName(potentialName),
             mask(getMask(numberOfEnergyStates,numberOfDensityStates)),
             theta(getTheta(mask,f))
@@ -63,7 +60,7 @@ namespace oILAB {
         // Compute current state properties
         // if this is the first call, compute the current energy and density
         if(countLW==0) {
-            const auto& temp= currentSystem.densityEnergy(lmpLocation, potentialName, false);
+            const auto& temp= currentSystem.densityEnergy(potentialName, false);
             //currentDensity= temp.first;
             currentDensity= currentState.density();
             currentEnergy= std::get<1>(temp);
@@ -87,7 +84,7 @@ namespace oILAB {
         }
         else {
             std::cout << "new" << std::endl;
-            const auto& temp= proposedSystem.densityEnergy(lmpLocation, potentialName, false);
+            const auto& temp= proposedSystem.densityEnergy(potentialName, false);
             //proposedDensity= temp.first;
             proposedDensity= proposedState.density();
             proposedEnergy= std::get<1>(temp);

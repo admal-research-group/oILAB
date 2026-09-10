@@ -1,5 +1,6 @@
 #include "../../include/IO/TextFileParser.h"
 #include "../../include/Lattices/GbMesoStateEnsemble.h"
+#include <filesystem>
 #include <numbers>
 #include <omp.h>
 
@@ -141,11 +142,11 @@ int main() {
 
         // I am stopping it here as currently the constructed configuration files are empty
           /*
-        std::string potentialName = "Cu_mishin1.eam.alloy";
-        std::string lmpLocation = "/Users/Nikhil/Documents/Academic/Software/"
-                                  "lammps-15May15/src/lmp_serial";
+        // LAMMPS runs in this process; the only thing it needs from here is the potential.
+        std::string potentialName =
+            std::filesystem::absolute("Cu_mishin1.eam.alloy").string();
 
-        const auto data = mesostate.densityEnergy(lmpLocation, potentialName);
+        const auto data = mesostate.densityEnergy(potentialName);
 
         if (out_file.is_open())
           out_file << *it << "  " << std::get<0>(data) << "  " << std::get<1>(data) << std::endl;

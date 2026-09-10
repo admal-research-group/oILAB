@@ -6,6 +6,12 @@
 #include <TextFileParser.h>
 #include <GbMesoStateEnsemble.h>
 #include <omp.h>
+#ifdef __linux__
+#include <sched.h>
+#endif
+#include <fstream>
+#include <set>
+#include <thread>
 #include <numbers>
 #include <vector>
 #include <string>
@@ -538,6 +544,94 @@ static std::vector<int> groupByFingerprint(const std::vector<const Surveyed*>& m
     return group;
 }
 
+
+/*! \brief A tally of the states a pass could not finish, keeping one full report of each kind.
+ *
+ *  Grouping by the first line is what makes a sweep's failures readable: twelve thousand states
+ *  failing the same way are one line, not twelve thousand.  But a LAMMPS failure carries the
+ *  commands it died on, the configuration it died on them with, and where to find the log -- and
+ *  that is the part worth reading.  So the first of each kind is kept whole and printed under
+ *  its tally, and the ten-thousandth is only counted.
+ */
+struct FailureTally
+{
+    std::map<std::string,int> counts;
+    std::map<std::string,std::string> firstInFull;
+
+    void record(const std::exception& e)
+    {
+        const std::string what= e.what();
+        const std::string key= what.substr(0, std::min(what.find('\n'), std::size_t(70)));
+        ++counts[key];
+        if (what.size() > key.size()) firstInFull.emplace(key, what);
+    }
+
+    bool empty() const { return counts.empty(); }
+
+    void report(std::ostream& os) const
+    {
+        for (const auto& [key,count] : counts) {
+            os << "      " << count << " x  " << key << std::endl;
+            const auto found= firstInFull.find(key);
+            if (found == firstInFull.end()) continue;
+            std::istringstream lines(found->second);
+            std::string line;
+            while (std::getline(lines, line)) os << "          " << line << std::endl;
+        }
+    }
+};
+
+
+/*! \brief How many threads to run: one per PHYSICAL core the process may use.
+ *
+ *  Not one per logical CPU.  Measured on a 2 x 26-core Xeon with hyperthreading (104 logical),
+ *  sweeping 26,879 states: 61.3 s at 40 threads, 50.1 at 52, 49.3 at 64, 52.3 at 80, 49.6 at
+ *  100.  Throughput is flat from the physical core count upward, so the hyperthreads buy
+ *  nothing -- the work is already issue-limited -- while the cost of asking for them is real:
+ *  peak memory was 756 MB at 52 threads against 1241 MB at 100, because instance reuse keeps a
+ *  LAMMPS instance per thread.  Oversubscribing also inflates every per-state figure in the
+ *  profile by the oversubscription factor, which makes a run harder to read for no gain.
+ *
+ *  Counted over the CPUs this process is actually allowed on, so a pinned job, a cpuset or a
+ *  container gets its own share rather than the whole machine's -- asking for 52 threads inside
+ *  a four-core allocation is worse than asking for four.
+ *
+ *  OILAB_THREADS overrides outright; OMP_NUM_THREADS is honoured next, since a caller who has
+ *  set it means it.
+ */
+static int defaultThreadCount()
+{
+    const auto fromEnvironment= [](const char* name) {
+        const char* v= std::getenv(name);
+        const int n= v ? std::atoi(v) : 0;
+        return n > 0 ? n : 0;
+    };
+    if (const int n= fromEnvironment("OILAB_THREADS"))     return n;
+    if (const int n= fromEnvironment("OMP_NUM_THREADS"))   return n;
+
+#ifdef __linux__
+    // Two logical CPUs sharing a core report the same sibling list, so the number of distinct
+    // lists over the allowed CPUs is the number of physical cores available.
+    cpu_set_t allowed;
+    CPU_ZERO(&allowed);
+    if (sched_getaffinity(0, sizeof allowed, &allowed) == 0) {
+        std::set<std::string> cores;
+        for (int cpu= 0; cpu < CPU_SETSIZE; ++cpu) {
+            if (!CPU_ISSET(cpu, &allowed)) continue;
+            std::ifstream siblings("/sys/devices/system/cpu/cpu" + std::to_string(cpu)
+                                   + "/topology/thread_siblings_list");
+            std::string line;
+            // No topology exposed (a VM, say) -- then every allowed CPU counts for itself.
+            cores.insert(siblings && std::getline(siblings, line)
+                         ? line : "cpu" + std::to_string(cpu));
+        }
+        if (!cores.empty()) return static_cast<int>(cores.size());
+    }
+#endif
+    const unsigned reported= std::thread::hardware_concurrency();
+    return reported > 0 ? static_cast<int>(reported) : 1;
+}
+
 int main()
 {
     /*! [Types] */
@@ -557,7 +651,7 @@ int main()
     VectorDimD gbNormal(-3,1,0);                        // Miller indices
 	//VectorDimD gbNormal(-5,2,0);
     //VectorDimD gbNormal(-4,1,0);
-    int heightScaling= 6;
+    int heightScaling= 2;
 
     /*! The least the crystal may measure along the boundary normal, in Angstrom.
      *
@@ -576,7 +670,7 @@ int main()
      *  box is this plus vacuumThickness at each end. */
     const double minimumCrystalThickness= 50.0;
 	int periodScaling= 1;
-	int axisScaling= 2;
+	int axisScaling= 3;
 
 
     // enumerateStates: build every mesostate the ensemble's (t,s) pairs admit.  Set it false to
@@ -594,9 +688,6 @@ int main()
     // that the coincidence point is the midpoint of the pair of atoms that meets there.
     // False sweeps assymetric displacments as well.
     const bool symmetricDisplacementsOnly = true;
-    // Run both relaxations in one LAMMPS invocation: relax against the tether, read the tethered
-    // figures off, release the restraint, and relax again from where that left the structure.
-    const bool chainRelaxations           = false;
     // Remove every coincidence the state did not engage -- both of the atoms that met there --
     // so that the configuration holds exactly the coincidences its signature names.
     // False keeps every atom and lets the relaxation fuse whatever the field brought together,
@@ -631,7 +722,7 @@ int main()
     // lattice with spacings 0.404, 0.808, 1.617 A here, so the criterion bites in steps: 0.45
     // removes the 0.404 A pairs -- the ones that drive ordinary, non-node atoms of the two grains
     // to within half an Angstrom of each other -- and keeps everything at 0.808 A and beyond.
-    const double minSiteSeparation        = 0.45;  // Angstrom
+    const double minSiteSeparation        = 0.25;  // Angstrom
     // Keep only the shifts whose coincidence point lies exactly in the boundary plane.  The
     // deformed surface is then planar and every state built over them is a flat STGB -- the
     // baseline the faceted states depart from.
@@ -697,9 +788,14 @@ int main()
     const bool minimizeInLammps           = true;  // relax before reading the energy
     const double tetherHalfWidth          = 4.0;   // Angstrom; 0 = full minimisation
     const double tetherStiffness          = 10.0;  // eV/Angstrom^2
-    const int numThreads                  = 100;
-    const std::string potentialName       = "Cu_mishin1.eam.alloy";
-    const std::string lmpLocation         = "/usr/bin/lmp";
+    const int numThreads                  = defaultThreadCount();
+    // LAMMPS runs in this process, through the library.  Nothing here names an `lmp` binary,
+    // and the potential is handed to LAMMPS as one absolute path, resolved once: each thread
+    // holds its instance open across states, so the 706 kB EAM file is parsed once per thread
+    // rather than once per relaxation.  A relative path would also be read relative to whatever
+    // the working directory happened to be when a state ran.
+    const std::string potentialFile       =
+        std::filesystem::absolute("Cu_mishin1.eam.alloy").string();
     // -------------------------------------------------------------------------------
 
     std::cout << "states = "
@@ -711,22 +807,16 @@ int main()
                                                                   : "Sites (coincidence points "
                                                                     "first)") << std::endl;
 
-    // A missing executable or potential is worth catching here: energy() would otherwise run a
-    // command that does nothing and then read an output file that was never written.
+    // A missing potential is worth catching here rather than inside the first relaxation, where
+    // it would come back as a LAMMPS error on one thread part-way through a sweep.
     bool energiesRequested = computeEnergies;
-    if (energiesRequested && !std::filesystem::exists(lmpLocation)) {
-        std::cout << "LAMMPS executable not found at " << lmpLocation
-                  << " -- writing configurations only, no energies." << std::endl;
-        energiesRequested = false;
-    }
-    if (energiesRequested && !std::filesystem::exists(potentialName)) {
-        std::cout << "Potential file " << potentialName << " not found in "
-                  << std::filesystem::current_path().string()
-                  << " -- writing configurations only, no energies." << std::endl;
+    if (energiesRequested && !std::filesystem::exists(potentialFile)) {
+        std::cout << "Potential file " << potentialFile
+                  << " not found -- writing configurations only, no energies." << std::endl;
         energiesRequested = false;
     }
     if (energiesRequested)
-        std::cout << "energies = LAMMPS at " << lmpLocation << ", potential " << potentialName
+        std::cout << "energies = LAMMPS library, potential " << potentialFile
                   << (minimizeInLammps ? ", minimized" : ", unrelaxed") << std::endl;
     if (energiesRequested && minimizeInLammps)
         std::cout << "relaxation = "
@@ -1182,16 +1272,17 @@ int main()
                 boundaryName(gb.bc.sigma, theta*180.0/std::numbers::pi, axis, gbNormalMiller);
             // Results live outside the build tree.  A build directory is something a tool may
             // regenerate or clear, and results are not; keeping them apart means no cleanup of
-            // one can reach the other.  Only LAMMPS's own per-thread scratch stays in the
-            // working directory, because LAMMPS writes it there.
+            // one can reach the other.  Nothing is left in the working directory: LAMMPS runs in
+            // this process and writes no scratch of its own.
             const std::string outputDirectory=
                 outputRoot + "/" + boundaryDirectory + "/"
                 + (searchMode==GbShiftSearch::Flat ? "flat" : "full")
                 + "_maxEngaged"
                 + (maxEngaged > 0 ? std::to_string(maxEngaged) : std::string("all"));
-            // Where pass 1 puts the configurations it needs but does not keep.  One pair of files
-            // per thread, overwritten by every state that thread visits: LAMMPS has to be handed
-            // a file, but nothing downstream wants 921599 of them.
+            // Where pass 2 builds the configurations of the states it keeps, before renaming
+            // them into place beside the rest of that state's output.  Pass 1 writes nothing at
+            // all: it hands its atoms straight to LAMMPS, and nothing downstream wants 921599
+            // configuration files.
             const std::string scratchDirectory = outputDirectory + "/scratch";
             for (const auto& directory : {outputDirectory, scratchDirectory})
                 std::filesystem::create_directories(directory);
@@ -1266,7 +1357,7 @@ int main()
             };
 
             int rejected=0;
-            std::map<std::string,int> reasons;
+            FailureTally reasons;
 
             // ================================================================ PASS 1
             // Visit every state, keep its numbers, throw its configuration away.
@@ -1369,8 +1460,8 @@ int main()
                         // structures themselves are not being kept in this pass.
                         mark= tick();
                         const auto relaxed= mesostate.relaxations(
-                            lmpLocation, potentialName, configuration,
-                            tetherHalfWidth, tetherStiffness, "", "", chainRelaxations);
+                            potentialFile, configuration,
+                            tetherHalfWidth, tetherStiffness, "", "");
                         phase.energy+= secondsSince(mark);
                         record.density  = relaxed.density;
                         record.unrelaxed= relaxed.unrelaxed;
@@ -1408,7 +1499,7 @@ int main()
 #pragma omp critical (report)
                     {
                         ++rejected;
-                        reasons[std::string(e.what()).substr(0,70)]++;
+                        reasons.record(e);
                     }
                 }
             }
@@ -1473,8 +1564,7 @@ int main()
             std::cout << "\nstates surveyed : " << surveyed.size() << std::endl;
             std::cout << "  rejected (clash / not triangulable) : " << rejected << std::endl;
             std::cout << "  candidate states examined : " << subsets.size() << std::endl;
-            for (const auto& [message,count] : reasons)
-                std::cout << "      " << count << " x  " << message << std::endl;
+            reasons.report(std::cout);
             std::cout << "  numbers in " << outputDirectory << "/output_thread_<id>.txt"
                       << std::endl;
             if (surveyed.empty())
@@ -1739,7 +1829,7 @@ int main()
                           "# Set enumerateStates=false and fin to this file to rebuild them.\n";
 
             int built=0, unbuilt=0;
-            std::map<std::string,int> buildFailures;
+            FailureTally buildFailures;
             // Pass 2 reports every state in full, but a few hundred blocks scroll past without
             // saying how far along they are, so each carries its own place in the run.
             long long constructed= 0;
@@ -1793,13 +1883,12 @@ int main()
                     GbMesoState<3>::Relaxations relaxed;
                     if (energiesRequested)
                         relaxed= mesostate.relaxations(
-                            lmpLocation, potentialName, configuration,
+                            potentialFile, configuration,
                             tetherHalfWidth, tetherStiffness,
                             std::filesystem::absolute(outputDirectory + "/dump.state_" + index
                                                       + "_2").string(),
                             std::filesystem::absolute(outputDirectory + "/dump.state_" + index
-                                                      + "_3").string(),
-                            chainRelaxations);
+                                                      + "_3").string());
 
                     std::ostringstream report;
                     report << "  [" << index << "] " << chosen.level << " node(s), "
@@ -1882,7 +1971,7 @@ int main()
 #pragma omp critical (report)
                     {
                         ++unbuilt;
-                        buildFailures[std::string(e.what()).substr(0,70)]++;
+                        buildFailures.record(e);
                     }
                 }
             }
@@ -1899,8 +1988,7 @@ int main()
                       << std::endl;
             if (unbuilt > 0) {
                 std::cout << "  failed to rebuild : " << unbuilt << std::endl;
-                for (const auto& [message,count] : buildFailures)
-                    std::cout << "      " << count << " x  " << message << std::endl;
+                buildFailures.report(std::cout);
             }
             std::cout << "  configurations and manifest in "
                       << std::filesystem::absolute(outputDirectory).string() << std::endl;
@@ -1989,7 +2077,7 @@ int main()
 
             if (energiesRequested) {
                 const auto [density,gbEnergy]=
-                    mesostate.densityEnergy(lmpLocation, potentialName, minimizeInLammps);
+                    mesostate.densityEnergy(potentialFile, minimizeInLammps);
                 std::cout << "           density = " << std::fixed << std::setprecision(6)
                           << density << "   energy = " << gbEnergy
                           << (minimizeInLammps ? "  (minimized)" : "  (unrelaxed)") << std::endl;

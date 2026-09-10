@@ -216,14 +216,12 @@ GbMesoState<dim>::GbMesoState(
     /*-------------------------------------*/
     template<int dim>
     typename GbMesoState<dim>::Relaxations
-    GbMesoState<dim>::relaxations(const std::string& lmpLocation,
-                                  const std::string& potentialName,
+    GbMesoState<dim>::relaxations(const std::string& potentialName,
                                   const std::string& configFile,
                                   const double& tetherHalfWidth,
                                   const double& tetherStiffness,
                                   const std::string& tetheredDumpFile,
-                                  const std::string& fullDumpFile,
-                                  const bool& chainRelaxations) const
+                                  const std::string& fullDumpFile) const
     {
         // Only a path to hand on, so the atoms have to come off disk.  Building the state has to
         // happen first if there is not even a path.  The sweep does not come through here: it
@@ -237,21 +235,19 @@ GbMesoState<dim>::GbMesoState(
             configuration.box= cellBox;
             configuration.origin= origin;
         }
-        return relaxations(lmpLocation, potentialName, configuration, tetherHalfWidth,
-                           tetherStiffness, tetheredDumpFile, fullDumpFile, chainRelaxations);
+        return relaxations(potentialName, configuration, tetherHalfWidth,
+                           tetherStiffness, tetheredDumpFile, fullDumpFile);
     }
 
     /*-------------------------------------*/
     template<int dim>
     typename GbMesoState<dim>::Relaxations
-    GbMesoState<dim>::relaxations(const std::string& lmpLocation,
-                                  const std::string& potentialName,
+    GbMesoState<dim>::relaxations(const std::string& potentialName,
                                   const Configuration& configuration,
                                   const double& tetherHalfWidth,
                                   const double& tetherStiffness,
                                   const std::string& tetheredDumpFile,
-                                  const std::string& fullDumpFile,
-                                  const bool& chainRelaxations) const
+                                  const std::string& fullDumpFile) const
     {
         const auto& atoms= configuration.atoms;
         const auto& cellBox= configuration.box;
@@ -259,37 +255,19 @@ GbMesoState<dim>::GbMesoState(
 
         Relaxations result;
 
-        if (chainRelaxations && tetherHalfWidth > 0.0)
-        {
-            // One invocation for both: LAMMPS relaxes against the restraint, reports, releases
-            // it, and relaxes again from there.  The tethered structure goes to the first dump
-            // and the freely relaxed one to the second, as when the two are run separately.
-            double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
-            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
-                                        tetheredDumpFile, tetherHalfWidth, tetherStiffness,
-                                        &spring, &unrelaxedEnergy,
-                                        true, fullDumpFile, &freeEnergy);
-            result.density  = tethered.first;
-            result.tethered = tethered.second;
-            result.spring   = spring;
-            result.unrelaxed= unrelaxedEnergy;
-            result.full     = freeEnergy;
-            return result;
-        }
-
         if (tetherHalfWidth > 0.0 && bothRelaxationsInOneInvocation)
         {
-            // Both relaxations in one LAMMPS invocation.  They are still two independent runs --
-            // the second starts with its own clear and read_data, from the configuration the
-            // construction produced, not from where the tether left the atoms -- so the answers
-            // are those of two separate invocations.  What is saved is a process launch, a parse
-            // of the potential file and a neighbour-list build, which is most of what an
-            // invocation costs; the physics is untouched.
+            // Both relaxations on one LAMMPS setup.  They are still two independent runs -- the
+            // second starts from a fresh set of atoms, from the configuration the construction
+            // produced, not from where the tether left them -- so the answers are those of two
+            // separate calls.  What is saved is a parse of the potential file and a neighbour-list
+            // build, which is most of what a relaxation costs outside the minimisation itself;
+            // the physics is untouched.
             double spring= 0.0, unrelaxedEnergy= 0.0, freeEnergy= 0.0;
-            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
+            const auto tethered= energy(atoms, cellBox, origin, potentialName, true,
                                         tetheredDumpFile, tetherHalfWidth, tetherStiffness,
                                         &spring, &unrelaxedEnergy,
-                                        false, fullDumpFile, &freeEnergy, true);
+                                        fullDumpFile, &freeEnergy, true);
             result.density  = tethered.first;
             result.tethered = tethered.second;
             result.spring   = spring;
@@ -298,11 +276,11 @@ GbMesoState<dim>::GbMesoState(
             return result;
         }
 
-        // One invocation per relaxation: the free one first, then the tethered one if there is
-        // a tether.  Slower by a process launch and a potential parse per state, and the answer
-        // is the same -- which is what makes it the check on the shared-invocation path above.
+        // One call per relaxation: the free one first, then the tethered one if there is a
+        // tether.  Slower by a potential parse per state, and the answer is the same -- which is
+        // what makes it the check on the shared-setup path above.
         double ignoredSpring= 0.0, unrelaxed= 0.0;
-        const auto full= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
+        const auto full= energy(atoms, cellBox, origin, potentialName, true,
                                 fullDumpFile, 0.0, 1.0, &ignoredSpring, &unrelaxed);
         result.density  = full.first;
         result.full     = full.second;
@@ -311,7 +289,7 @@ GbMesoState<dim>::GbMesoState(
         result.spring   = 0.0;
         if (tetherHalfWidth > 0.0) {
             double spring= 0.0, unrelaxedAgain= 0.0;
-            const auto tethered= energy(lmpLocation, atoms, cellBox, origin, potentialName, true,
+            const auto tethered= energy(atoms, cellBox, origin, potentialName, true,
                                         tetheredDumpFile, tetherHalfWidth, tetherStiffness,
                                         &spring, &unrelaxedAgain);
             result.tethered= tethered.second;
@@ -325,8 +303,7 @@ GbMesoState<dim>::GbMesoState(
 
     /*-------------------------------------*/
     template<int dim>
-    std::tuple<double,double> GbMesoState<dim>::densityEnergy(const std::string& lmpLocation,
-                                                             const std::string& potentialName,
+    std::tuple<double,double> GbMesoState<dim>::densityEnergy(const std::string& potentialName,
                                                              const bool& minimize,
                                                              const std::string& configFile,
                                                              const std::string& minimizedDumpFile,
@@ -335,16 +312,23 @@ GbMesoState<dim>::GbMesoState(
                                                              double* springEnergy,
                                                              double* unminimizedEnergy) const
     {
-        // Writing the configuration means evaluating the displacement field at every atom, which
+        // Building the configuration means evaluating the displacement field at every atom, which
         // dominates the cost of a mesostate -- so it is done here only when the caller has not
-        // already written one.
-        std::string deformedFile= configFile;
-        if (deformedFile.empty()) {
-            box("temp" + std::to_string(omp_get_thread_num()));
-            deformedFile= "temp" + std::to_string(omp_get_thread_num()) + "_reference1.txt";
+        // already produced one.  A caller with nothing to hand over gets it in memory: LAMMPS
+        // takes the atoms directly, so there is no longer any reason to go out to a scratch file
+        // and parse it back.
+        Configuration configuration;
+        if (configFile.empty())
+            box("", nullptr, false, nullptr, &configuration);
+        else {
+            const auto [atoms, cellBox, origin]= read_oILAB_output(configFile);
+            configuration.atoms= atoms;
+            configuration.box= cellBox;
+            configuration.origin= origin;
         }
-        std::pair<double,double> densityEnergyPair= energy(lmpLocation,
-                                                           deformedFile,
+        std::pair<double,double> densityEnergyPair= energy(configuration.atoms,
+                                                           configuration.box,
+                                                           configuration.origin,
                                                            potentialName,
                                                            minimize,
                                                            minimizedDumpFile,

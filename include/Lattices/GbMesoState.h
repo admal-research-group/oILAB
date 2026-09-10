@@ -212,43 +212,31 @@ public:
    *  comparable.  With \p tetherHalfWidth at zero there is only one relaxation to run and the
    *  tethered figures repeat the free ones.
    *
-   *  \p chainRelaxations does the two in one invocation instead: relax tethered, release the
-   *  restraint, relax again from there.  That is one LAMMPS start-up rather than two and skips
-   *  the descent the free run would repeat, at the cost of asking a different question -- the
-   *  free minimum reached from the tethered structure need not be the one reached from the
-   *  as-constructed structure.  Measure the difference on the boundary at hand before trusting
-   *  it; on some landscapes it is nothing and on others it is not.
-   *
-   *  @param configFile a deformed configuration already written by box(); empty writes a scratch
-   *         copy.  Writing one evaluates the displacement field at every atom and dominates the
+   *  @param configFile a deformed configuration already written by box(); empty builds one in
+   *         memory.  Building it evaluates the displacement field at every atom and dominates the
    *         cost of a state, so a caller that has one should hand it over.
    *  @param tetheredDumpFile where to leave the tethered structure, if anywhere.
    *  @param fullDumpFile where to leave the freely relaxed structure, if anywhere. */
-  Relaxations relaxations(const std::string &lmpLocation,
-                          const std::string &potentialName,
+  Relaxations relaxations(const std::string &potentialName,
                           const std::string &configFile = "",
                           const double &tetherHalfWidth = 0.0,
                           const double &tetherStiffness = 1.0,
                           const std::string &tetheredDumpFile = "",
-                          const std::string &fullDumpFile = "",
-                          const bool &chainRelaxations = false) const;
+                          const std::string &fullDumpFile = "") const;
 
   /*! As above, from a configuration already in memory -- what box() hands back when it is asked
    *  for one.  This is the form the sweep uses; the overload above reads a file and delegates
    *  here, and exists for callers that still have only a path. */
-  Relaxations relaxations(const std::string &lmpLocation,
-                          const std::string &potentialName,
+  Relaxations relaxations(const std::string &potentialName,
                           const Configuration &configuration,
                           const double &tetherHalfWidth,
                           const double &tetherStiffness,
                           const std::string &tetheredDumpFile,
-                          const std::string &fullDumpFile,
-                          const bool &chainRelaxations) const;
+                          const std::string &fullDumpFile) const;
 
   // std::pair<double,double> densityEnergy() const;
   std::tuple<double, double>
-  densityEnergy(const std::string &lmpLocation,
-                const std::string &potentialName,
+  densityEnergy(const std::string &potentialName,
                 const bool &minimize = false,
                 const std::string &configFile = "",
                 const std::string &minimizedDumpFile = "",
