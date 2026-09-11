@@ -131,6 +131,22 @@ inline bool runFreeRelaxation =
  *  Each relaxation starts from a fresh instance whose timestep is zero, so LAMMPS's `step` after
  *  minimize IS the iteration count.  Costs one variable evaluation per relaxation against a
  *  minimisation of order a hundred milliseconds. */
+/*! \brief Whether the per-relaxation diagnostics below are collected.  OFF by default.
+ *
+ *  They cost a LAMMPS command and three library calls per relaxation -- of order 15-35 us
+ *  against a minimisation of about 40 ms, so under 0.1% -- but they sit in the hottest path in
+ *  the program and both questions they were written to answer are settled: the tethered
+ *  minimisation converges in about nine iterations from the first state to the last, and LAMMPS's
+ *  own allocation is constant at 4.236 MB for a whole run.  Neither moves while the sweep decays,
+ *  which is how the decay was traced out of LAMMPS altogether and into the allocator.
+ *
+ *  Turn them back on with OILAB_LAMMPS_STATS=1 if a sweep on another boundary, potential or cell
+ *  behaves differently -- iterations rising would mean the states really are getting harder, and
+ *  that is worth knowing before anything else is blamed. */
+inline const bool lammpsReportStatistics =
+    std::getenv("OILAB_LAMMPS_STATS") != nullptr
+    && std::string(std::getenv("OILAB_LAMMPS_STATS")) != "0";
+
 /*! LAMMPS's own accounting of what it has allocated, sampled once per state.  The point is to
  *  separate two superimposed decays: if this climbs with session.uses and falls back at every
  *  recycle, the accumulation is inside the instance; if it is flat while the sweep still slows,
@@ -670,15 +686,21 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         // interval, which is a running total being divided by a constant number of relaxations,
         // not a minimiser doing more work.  The difference is right however the timestep is
         // carried, and costs one extra variable evaluation.
-        run("variable oilabStep equal step\n");
-        const long long before= static_cast<long long>(value("oilabStep"));
-        run(m.str());
-        const long long steps= static_cast<long long>(value("oilabStep")) - before;
+        long long before= 0;
+        if (lammpsReportStatistics) {
+            run("variable oilabStep equal step\n");
+            before= static_cast<long long>(value("oilabStep"));
+        }
 
-        minimizeIterations.fetch_add(steps, std::memory_order_relaxed);
-        minimizeRelaxations.fetch_add(1, std::memory_order_relaxed);
-        if (steps >= minimizeMaxIterations)
-            minimizeCapped.fetch_add(1, std::memory_order_relaxed);
+        run(m.str());
+
+        if (lammpsReportStatistics) {
+            const long long steps= static_cast<long long>(value("oilabStep")) - before;
+            minimizeIterations.fetch_add(steps, std::memory_order_relaxed);
+            minimizeRelaxations.fetch_add(1, std::memory_order_relaxed);
+            if (steps >= minimizeMaxIterations)
+                minimizeCapped.fetch_add(1, std::memory_order_relaxed);
+        }
     };
     const auto snapshot= [&](const std::string& path)
     {
@@ -732,6 +754,7 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         snapshot(tetheredDumpFile);
     }
     // Sampled before any close, so it describes the instance as this state left it.
+    if (lammpsReportStatistics)
     {
         double meminfo[3]= {0.0,0.0,0.0};
         lammps_memory_usage(lmp, meminfo);
