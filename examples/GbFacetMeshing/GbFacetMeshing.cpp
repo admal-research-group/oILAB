@@ -1064,7 +1064,7 @@ int main()
     // This assignment overrides the OILAB_FREE_RELAXATION default in Lammps.h.  It happens
     // before any thread starts, which is the only safe moment: the flag is read inside every
     // LAMMPS call.
-    const bool freeRelaxation             = false;
+    const bool freeRelaxation             = true;
     const int numThreads                  = defaultThreadCount();
     // LAMMPS runs in this process, through the library.  Nothing here names an `lmp` binary,
     // and the potential is handed to LAMMPS as one absolute path, resolved once: each thread
