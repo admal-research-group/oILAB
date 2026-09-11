@@ -22,6 +22,7 @@
 #include <atomic>
 #include <cstring>
 #include <array>
+#include <sstream>
 #include <cmath>
 #include <algorithm>
 #include <limits>
@@ -509,6 +510,23 @@ template<int N>
 class Interner
 {
 public:
+    /*! \param capacity the most identities this interner will ever hand out.  It is not a
+     *  tuning knob but a correctness bound: packKey packs the identities into fixed bit fields,
+     *  so an interner that grows past its field throws and -- because the sweep catches per
+     *  state -- turns every remaining state into a silent rejection.  Capping instead degrades
+     *  to the direct sum for the overflow, which is the same number. */
+    explicit Interner(const std::size_t capacity) : capacity_(capacity) {}
+
+    /*! The identity of \p value, or -1 when the table is full and \p value is not already in
+     *  it.  A -1 means "do not memoise this one", never "wrong answer": the caller falls back
+     *  to computing directly, which is what the memo would have returned anyway.
+     *
+     *  Dropping the overflow costs almost nothing here, and that is measured rather than hoped:
+     *  over the first 160k states of the faceted sigma5 (310) sweep the memo gained 6.4 entries
+     *  per state while the triangle pool grew 5.25 per state, a ratio of 1.2 and falling.  A
+     *  newly discovered triangle is therefore queried about once and never reused, so the
+     *  entries a cap discards are the ones carrying no reuse -- the hit rate is 99.9% with or
+     *  without them. */
     int identify(const std::array<double,N>& value)
     {
         {
@@ -517,8 +535,12 @@ public:
             if (found != table_.end()) return found->second;
         }
         std::unique_lock<std::shared_mutex> guard(mutex_);
-        const auto [entry, inserted]= table_.emplace(value, static_cast<int>(table_.size()));
-        return entry->second;
+        // Re-checked under the exclusive lock: another thread may have inserted this value, or
+        // filled the last slot, since the shared lock was dropped.
+        const auto found= table_.find(value);
+        if (found != table_.end()) return found->second;
+        if (table_.size() >= capacity_) return -1;
+        return table_.emplace(value, static_cast<int>(table_.size())).first->second;
     }
     void clear() { std::unique_lock<std::shared_mutex> guard(mutex_); table_.clear(); }
     std::size_t size() const
@@ -535,11 +557,34 @@ private:
         }
     };
     std::unordered_map<std::array<double,N>,int,Hash> table_;
+    std::size_t capacity_;
     mutable std::shared_mutex mutex_;
 };
-Interner<3> pointInterner;
-Interner<9> triangleInterner;
-Interner<3> settingsInterner;
+
+/*! The triangle pool is the one that actually grows: on the faceted sigma5 (310) sweep it gains
+ *  about 5.3 distinct triangles per state and fits triangles = 18.7*states^0.90, which reaches
+ *  packKey's 2^24 field at 4.16 million states -- 39% of that sweep -- and 39 million triangles,
+ *  some 4 GB, by the end of it.  Flat boundaries never showed this: the whole 26,879-state flat
+ *  sweep interned 2,144 triangles, because a flat facet reuses the same few.
+ *
+ *  Four million is about 440 MB and well inside the 2^24 field.  OILAB_FACET_TRIANGLE_CAPACITY
+ *  moves it; anything above 2^24-1 would defeat the purpose and is clamped. */
+std::size_t triangleInternerCapacity()
+{
+    constexpr std::size_t ceiling= (1u<<24)-1;
+    const char* v= std::getenv("OILAB_FACET_TRIANGLE_CAPACITY");
+    const long long n= v ? std::atoll(v) : 0;
+    if (n <= 0) return 4000000;
+    return static_cast<std::size_t>(n) > ceiling ? ceiling : static_cast<std::size_t>(n);
+}
+
+/*! The query points are bounded by the lattice and do not grow -- 746 of them after half a
+ *  million states -- so this cap never binds; it is here so that packKey's point field cannot
+ *  be overrun by a boundary that behaves differently. */
+Interner<3> pointInterner((1u<<24)-1);
+Interner<9> triangleInterner(triangleInternerCapacity());
+/*! packKey gives the quadrature settings 16 bits.  A sweep uses two or three. */
+Interner<3> settingsInterner((1u<<16)-1);
 } // namespace
 
 GbFacet::IntegrationCache GbFacet::build_integration_cache() const
@@ -755,10 +800,32 @@ struct MemoShard
 };
 MemoShard memoShards_[memoShards];
 std::atomic<long long> memoHits{0}, memoMisses{0};
+/*! Misses that found room and so took their shard's writer lock.  A writer lock excludes
+ *  every reader on that shard, so this -- not the miss count -- is what a thread can block
+ *  on, and it falls to zero once the table is full. */
+std::atomic<long long> memoLockedMisses{0};
+/*! Queries that never reached the table because some interner was full and the value had no
+ *  identity.  These are neither hits nor misses, so without counting them the hit rate silently
+ *  becomes a rate over the memoised subset only -- flattering, and exactly wrong once a cap
+ *  binds. */
+std::atomic<long long> memoUnkeyed{0};
 
-/*! An entry is 12 doubles of key plus 4 of value, and the table's own overhead roughly doubles
- *  that, so this cap is of order half a gigabyte.  A sweep that outgrows it keeps computing and
- *  stops inserting rather than growing without bound. */
+/*! The cap on the memo, in entries; OILAB_FACET_MEMO_CAPACITY overrides it.
+ *
+ *  An entry costs 75 bytes.  Measured rather than derived, but it decomposes: the key is the
+ *  three interned identities packed into one word and the value is four doubles, so the pair is
+ *  40 B; libstdc++ adds a next pointer and a cached hash code -- cached because
+ *  MemoHash::operator() is not noexcept, which is what decides it -- for a 56 B node that malloc
+ *  rounds up to 64; and the bucket array settles at about 1.33 buckets an entry, a further
+ *  10.6 B.  So the 4,000,000 default holds 285 MB, and 20,000,000 holds 1.39 GB.
+ *
+ *  The figure this replaces, "12 doubles of key plus 4 of value", predated the interning: the
+ *  key used to carry the query point and the three corners outright.
+ *
+ *  A sweep that outgrows the cap keeps computing and stops inserting rather than growing without
+ *  bound.  The cap bounds the TABLE only -- pointInterner and triangleInterner go on growing for
+ *  the whole sweep whatever it is set to, since a query interns its point before the capacity is
+ *  ever consulted. */
 long long memoCapacity()
 {
     const char* v= std::getenv("OILAB_FACET_MEMO_CAPACITY");
@@ -793,6 +860,42 @@ MemoReport memoReport;
 
 } // namespace
 
+std::string GbFacet::memoStatistics()
+{
+    // Serialised against itself so that two threads cannot both take the same interval and each
+    // report half of it.  Contended once per progress line, which is nothing.
+    static std::mutex reportMutex;
+    static long long lastHits= 0, lastMisses= 0, lastLocked= 0, lastUnkeyed= 0;
+    std::lock_guard<std::mutex> guard(reportMutex);
+
+    const long long h= memoHits.load(std::memory_order_relaxed);
+    const long long m= memoMisses.load(std::memory_order_relaxed);
+    const long long l= memoLockedMisses.load(std::memory_order_relaxed);
+    const long long e= memoEntries.load(std::memory_order_relaxed);
+    const long long capacity= memoCapacity();
+
+    const long long u= memoUnkeyed.load(std::memory_order_relaxed);
+    const long long dh= h-lastHits, dm= m-lastMisses, dl= l-lastLocked, du= u-lastUnkeyed;
+    lastHits= h; lastMisses= m; lastLocked= l; lastUnkeyed= u;
+
+    const auto percent= [](const long long part, const long long whole)
+    { return whole > 0 ? 100.0*static_cast<double>(part)/static_cast<double>(whole) : 0.0; };
+
+    std::ostringstream out;
+    out.setf(std::ios::fixed);
+    out.precision(1);
+    // Denominated over every query, the unkeyed included, so a full interner shows up as the
+    // hit rate falling rather than as a hit rate that stays at 99.9% of a shrinking subset.
+    out << "[memo] hit " << percent(dh, dh+dm+du) << "% now, " << percent(h, h+m+u) << "% overall"
+        << " | direct " << percent(du, dh+dm+du) << "% unkeyed"
+        << " | entries " << e << "/" << capacity << (e >= capacity ? " FULL" : "")
+        << " | locking " << percent(dl, dh+dm) << "% of lookups"
+        << " | interned points " << pointInterner.size()
+        << ", triangles " << triangleInterner.size() << "/" << triangleInternerCapacity()
+        << (triangleInterner.size() >= triangleInternerCapacity() ? " FULL" : "");
+    return out.str();
+}
+
 void GbFacet::resetSolidAngleMemo(const Eigen::Vector3d& period1,
                                   const Eigen::Vector3d& period2)
 {
@@ -810,6 +913,8 @@ void GbFacet::resetSolidAngleMemo(const Eigen::Vector3d& period1,
     memoEntries.store(0);
     memoHits.store(0);
     memoMisses.store(0);
+    memoLockedMisses.store(0);
+    memoUnkeyed.store(0);
     memoContext= here;
     memoContextSet= true;
 }
@@ -895,7 +1000,16 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face,
     // can be resolved.
     // The settings are in the key too: entries computed with the exact kernel and with the
     // dipole, or at different shell counts, are different numbers for the same triangle.
-    const MemoKey key= packKey(pointIdentity, cache.faceIdentity(face), settingsIdentity);
+    // A -1 from any interner means its table is full and this value never got an identity, so
+    // there is no key to look under.  Compute it directly: the memo is exact, so the fallback
+    // returns the same number the table would have.
+    const int triangleIdentity= cache.faceIdentity(face);
+    if (pointIdentity < 0 || triangleIdentity < 0 || settingsIdentity < 0) {
+        memoUnkeyed.fetch_add(1, std::memory_order_relaxed);
+        return computeTriangleWeights(x, face);
+    }
+
+    const MemoKey key= packKey(pointIdentity, triangleIdentity, settingsIdentity);
 
     MemoShard& shard= memoShards_[MemoHash()(key.v) % memoShards];
     {
@@ -904,7 +1018,10 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face,
         if (found != shard.table.end()) {
             memoHits.fetch_add(1, std::memory_order_relaxed);
             const TriangleWeights& result= found->second;
-            if (std::getenv("OILAB_FACET_MEMO_VERIFY")) {
+            // Read once, not once per hit: this is the hottest path in the sweep and getenv is
+            // a linear scan of the environment.
+            static const bool verify= std::getenv("OILAB_FACET_MEMO_VERIFY") != nullptr;
+            if (verify) {
                 const TriangleWeights direct= computeTriangleWeights(x, face);
                 double worst= std::abs(direct.omega - result.omega);
                 for (int k= 0; k < 3; ++k)
@@ -925,11 +1042,21 @@ GbFacet::triangleWeights(const Eigen::Vector3d& x, const int& face,
 
     memoMisses.fetch_add(1, std::memory_order_relaxed);
     const TriangleWeights computed= computeTriangleWeights(x, face);
+    // The capacity test comes BEFORE the lock.  Once the table is full every miss used to take
+    // an exclusive lock on its shard purely to re-read memoEntries and do nothing -- and a
+    // writer lock excludes every reader on that shard, so a saturated table turned the memo
+    // from a read-mostly cache into a contention point for every thread at once.  A sweep large
+    // enough to fill the table is exactly the sweep that then runs at a fraction of its speed.
+    //
+    // The load is relaxed and unsynchronised with the insert below, so two threads can both see
+    // room and push the table a few entries past the cap.  That is harmless: the cap bounds
+    // memory, it is not a correctness property, and emplace() still refuses a duplicate key.
+    static const long long capacity= memoCapacity();
+    if (memoEntries.load(std::memory_order_relaxed) < capacity)
     {
-        static const long long capacity= memoCapacity();
+        memoLockedMisses.fetch_add(1, std::memory_order_relaxed);
         std::unique_lock<std::shared_mutex> guard(shard.mutex);
-        if (memoEntries.load(std::memory_order_relaxed) < capacity
-            && shard.table.emplace(key.v, computed).second)
+        if (shard.table.emplace(key.v, computed).second)
             memoEntries.fetch_add(1, std::memory_order_relaxed);
     }
     return computed;

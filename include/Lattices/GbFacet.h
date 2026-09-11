@@ -60,6 +60,20 @@ public:
      *  number of states is not, so the bigger the run the more this returns.  The image sum is
      *  96% of displacement(), which is why halving it halves the field.
      *
+     *  THAT BOUNDEDNESS IS A PROPERTY OF FLAT BOUNDARIES, NOT OF THE METHOD.  It holds while
+     *  the states of a sweep share one shape: the whole 26,879-state flat sweep interned 2,144
+     *  triangles, 0.08 per state.  It fails as soon as the shape varies, because the faceted
+     *  surface is triangulated THROUGH the engaged coincidence points -- so shape and
+     *  engagement are one variable, and every state brings its own triangulation.  Measured on
+     *  the faceted sigma5 (310) sweep at slabHalfThickness 0.4: 5.3 new triangles per state,
+     *  fitting triangles = 18.7*states^0.90, which is 39 million of them and some 4 GB by the
+     *  end of a 10.7M-state run -- sixty-six times the per-state growth of the flat case.
+     *
+     *  Hence the cap on triangleInterner, and hence facetedGbTreeStrategy.txt: choosing a shape
+     *  first and enumerating the coincidence points that lie on it would let the states of a
+     *  branch share one triangulation, which is what would restore the premise this paragraph
+     *  opens with.
+     *
      *  It is exact, not an approximation: over both sweeps every state came out byte-identical
      *  to the direct sum, all four energies included.  Set OILAB_FACET_MEMO=0 to select the
      *  direct sum, which is what that was checked against, and OILAB_FACET_MEMO_VERIFY=1 to
@@ -80,6 +94,23 @@ public:
     /*! Reports the memo's hit rate and footprint on exit.  Set OILAB_FACET_MEMO_STATS=1. */
     inline static const bool reportMemoStatistics =
         std::getenv("OILAB_FACET_MEMO_STATS") != nullptr;
+
+    /*! \brief One line on what the memo is doing, for a sweep to print beside its progress.
+     *
+     *  The exit report alone cannot answer the question a slowing sweep actually asks, which is
+     *  not "what was the hit rate overall" but "what is it doing NOW".  A run whose rate has
+     *  halved has a cumulative hit rate dominated by the fast early states, so the interval
+     *  figures here -- everything "since last" -- are the ones that carry the signal.
+     *
+     *  Four things, because between them they separate the candidate explanations for a sweep
+     *  that decays: the interval hit rate (the pool of distinct geometry outgrowing the table),
+     *  entries against capacity (saturation), the share of lookups still taking a shard's writer
+     *  lock (insert contention, which persists only while the table has room), and the interner
+     *  sizes (which are bounded by nothing and grow for the whole sweep).
+     *
+     *  Cheap: a handful of relaxed atomic loads plus one shared lock per interner.  Call it from
+     *  a progress line, not from the hot path. */
+    static std::string memoStatistics();
 
     /*! \brief How far away, in face radii, an image has to be before its solid angle is taken
      *  as a point dipole instead of the exact closed form.

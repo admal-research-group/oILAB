@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
+#include <atomic>
 #ifdef _WIN32
     #include <io.h>
     #include <windows.h>
@@ -110,10 +111,38 @@ constexpr bool bothRelaxationsInOneInvocation = true;
  *
  *  With this off, Relaxations::full is left at zero and the sortedByFull table is not written,
  *  rather than quietly reporting the tethered figure twice.  OILAB_FREE_RELAXATION=0 turns it
- *  off from the environment. */
-inline const bool runFreeRelaxation =
+ *  off from the environment.
+ *
+ *  Not const: an application may set it directly, which is how a sweep keeps the choice beside
+ *  its other settings rather than in the environment of whoever launches it.  Assign it before
+ *  any thread starts -- every LAMMPS call reads it. */
+inline bool runFreeRelaxation =
     std::getenv("OILAB_FREE_RELAXATION") == nullptr
     || std::string(std::getenv("OILAB_FREE_RELAXATION")) != "0";
+
+/*! \brief Minimiser iterations, summed over every relaxation, and the number of relaxations.
+ *
+ *  Here to answer one question: a faceted sweep slows down as it runs, and the phase timers put
+ *  95% of a state in LAMMPS, so either the minimiser is doing more work per state as the run
+ *  proceeds or something is accumulating across instances.  Those look identical from outside
+ *  and completely different from here -- iterations rising says the states are genuinely harder,
+ *  iterations flat while the time grows says the cost is not the minimisation at all.
+ *
+ *  Each relaxation starts from a fresh instance whose timestep is zero, so LAMMPS's `step` after
+ *  minimize IS the iteration count.  Costs one variable evaluation per relaxation against a
+ *  minimisation of order a hundred milliseconds. */
+/*! LAMMPS's own accounting of what it has allocated, sampled once per state.  The point is to
+ *  separate two superimposed decays: if this climbs with session.uses and falls back at every
+ *  recycle, the accumulation is inside the instance; if it is flat while the sweep still slows,
+ *  the cost is in the host process -- heap, allocator, locality -- and no LAMMPS setting reaches
+ *  it.  Kept in kB so the sum stays exact in an integer. */
+inline std::atomic<long long> lammpsMemoryKB{0};
+inline std::atomic<long long> lammpsMemorySamples{0};
+inline std::atomic<long long> lammpsMemoryPeakKB{0};
+
+inline std::atomic<long long> minimizeIterations{0};
+inline std::atomic<long long> minimizeRelaxations{0};
+inline std::atomic<long long> minimizeCapped{0};   //!< relaxations that hit minimizeMaxIterations
 
 /*! Conjugate gradient, and how hard it is asked to work.
  *
@@ -278,6 +307,35 @@ inline const bool reuseLammpsInstance =
     std::getenv("OILAB_LAMMPS_REUSE") == nullptr
     || std::string(std::getenv("OILAB_LAMMPS_REUSE")) != "0";
 
+/*! \brief How many states one instance serves before it is closed and reopened.  0 never recycles.
+ *
+ *  Reuse is not free in the way it looks.  Measured on the faceted sigma5 (310) sweep, tethered
+ *  only, with the per-interval phase timers:
+ *
+ *      progress     reuse ON     reuse OFF      (LAMMPS core-ms per state)
+ *         0%          35.9          88.4
+ *        17%          90.7         121.6
+ *      slope         3.22/%        1.95/%
+ *
+ *  The minimiser itself does not change -- about nine iterations a relaxation throughout -- so
+ *  none of that rise is physics.  A reused instance grows at two thirds again the rate of a
+ *  fresh one, so something accumulates inside it; but a fresh one starts 42 ms per state worse,
+ *  because closing the instance destroys the pair style and the 706 kB EAM file is parsed again.
+ *  Neither setting is the answer: ON grows faster, OFF is slower everywhere.
+ *
+ *  So keep the instance and retire it on a schedule.  At 500 states the amortised cost of the
+ *  reopen is 42/500 = 0.08 ms a state, which is nothing beside the tens of milliseconds the
+ *  accumulation was adding, and the instance never lives long enough to accumulate much.
+ *
+ *  It does not affect reproducibility beyond what reuse already costs -- see reuseLammpsInstance
+ *  on atom ordering.  OILAB_LAMMPS_REUSE_STATES sets it; 0 restores unbounded reuse. */
+inline const int lammpsRecycleAfter = []{
+    const char* v= std::getenv("OILAB_LAMMPS_REUSE_STATES");
+    if (v == nullptr) return 500;
+    const int n= std::atoi(v);
+    return n >= 0 ? n : 500;
+}();
+
 /*! \brief Where LAMMPS writes its log, when it is asked to write one at all.
  *
  *  Empty -- the default -- runs every instance with `-log none -screen none`, which is what a
@@ -309,6 +367,7 @@ struct LammpsSession
     void* handle= nullptr;
     std::string potential;
     std::vector<double> cell;      //!< the bounds create_box was given, to know when to move them
+    long long uses= 0;             //!< states this instance has served, for lammpsRecycleAfter
     bool stateBuilt= false;        //!< whether a previous state's objects are still defined
     bool tetherDefined= false;     //!< whether that state left a spring/self fix behind
     /*! The commands most recently handed to this instance.
@@ -379,7 +438,12 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
     // library-wide state.
     static thread_local LammpsSession session;
     const bool reuse= reuseLammpsInstance;
-    if (session.handle != nullptr && (!reuse || session.potential != potentialFile)) {
+    // Retired when it has served its quota, as well as when reuse is off or the potential has
+    // changed.  Recycling here rather than after the run keeps the decision in one place, and
+    // the next block reopens whatever this closed.
+    const bool spent= reuse && lammpsRecycleAfter > 0 && session.uses >= lammpsRecycleAfter;
+    if (session.handle != nullptr
+        && (!reuse || spent || session.potential != potentialFile)) {
         lammps_close(session.handle);
         session= LammpsSession{};
     }
@@ -599,7 +663,22 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         m << "min_style " << minimizeStyle << "\nminimize "
           << minimizeEnergyTolerance << " " << minimizeForceTolerance << " "
           << minimizeMaxIterations << " " << minimizeMaxIterations << "\nrun 0\n";
+
+        // BRACKET the minimisation rather than read `step` after it.  Reading it after only
+        // gives the iteration count if the instance started at zero, and it does not: the first
+        // attempt at this reported a mean that climbed by a constant ~910 every progress
+        // interval, which is a running total being divided by a constant number of relaxations,
+        // not a minimiser doing more work.  The difference is right however the timestep is
+        // carried, and costs one extra variable evaluation.
+        run("variable oilabStep equal step\n");
+        const long long before= static_cast<long long>(value("oilabStep"));
         run(m.str());
+        const long long steps= static_cast<long long>(value("oilabStep")) - before;
+
+        minimizeIterations.fetch_add(steps, std::memory_order_relaxed);
+        minimizeRelaxations.fetch_add(1, std::memory_order_relaxed);
+        if (steps >= minimizeMaxIterations)
+            minimizeCapped.fetch_add(1, std::memory_order_relaxed);
     };
     const auto snapshot= [&](const std::string& path)
     {
@@ -652,6 +731,20 @@ inline LammpsResult energyThroughLibrary(const Eigen::MatrixXd& atoms,
         result.density  = value("atomsGB");
         snapshot(tetheredDumpFile);
     }
+    // Sampled before any close, so it describes the instance as this state left it.
+    {
+        double meminfo[3]= {0.0,0.0,0.0};
+        lammps_memory_usage(lmp, meminfo);
+        const long long kb= static_cast<long long>(meminfo[0]*1024.0);   // meminfo[0] is MB
+        lammpsMemoryKB.fetch_add(kb, std::memory_order_relaxed);
+        lammpsMemorySamples.fetch_add(1, std::memory_order_relaxed);
+        long long peak= lammpsMemoryPeakKB.load(std::memory_order_relaxed);
+        while (kb > peak
+               && !lammpsMemoryPeakKB.compare_exchange_weak(peak, kb,
+                                                            std::memory_order_relaxed)) {}
+    }
+
+    ++session.uses;
     if (!reuse) { lammps_close(lmp); session= LammpsSession{}; }
     return result;
 }

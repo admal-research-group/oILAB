@@ -5,6 +5,7 @@
 #include <cassert>
 #include <TextFileParser.h>
 #include <GbMesoStateEnsemble.h>
+#include <GbFacet.h>
 #include <omp.h>
 #ifdef __linux__
 #include <sched.h>
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <functional>
 #include <cstring>
+#include <array>
 #include <chrono>
 
 // Where sweep output is written.  CMake supplies <project>/runs; the fallback only matters if
@@ -470,6 +472,12 @@ struct Surveyed
     int fused= 0;              //!< atoms the overlap removal deletes
     int expelled= 0;           //!< atoms the deformation carried out of their own grain
     double corrugation= 0.0;
+    //! Where the deformed surface sits, not just how far it spans.  A state whose nodes all sit
+    //! one half-DSCL step off the flat plane is FLAT -- corrugation zero -- but on a different
+    //! plane, and the two are indistinguishable from the corrugation alone.  Whether such a
+    //! state duplicates a nominal-flat one is a question about the DSCL, so the sweep has to
+    //! record enough to ask it.
+    double surfaceLo= 0.0, surfaceHi= 0.0;
     double density= 0.0;
     double unrelaxed= 0.0;
     double tethered= 0.0;
@@ -499,7 +507,13 @@ struct Surveyed
  *  structure it arrived at, and the sweep reaches one boundary by engaging different numbers of
  *  its coincidences -- the rest forming on their own -- so including it would preserve exactly
  *  the duplicates this exists to remove. */
-static std::vector<double> stateFingerprint(const Surveyed& state)
+//! Fixed width, so a sweep's worth of these is one contiguous block rather than one heap
+//! allocation per state -- at ten million states that is the difference between 0.68 GB in
+//! one piece and about 1.1 GB scattered, and the sort below dereferences two of them per
+//! comparison.
+typedef std::array<double,8> Fingerprint;
+
+static Fingerprint stateFingerprint(const Surveyed& state)
 {
     return { (double)state.nodes, (double)state.fused, state.corrugation, state.density,
              state.unrelaxed, state.tethered, state.spring, state.full };
@@ -516,12 +530,67 @@ static std::vector<double> stateFingerprint(const Surveyed& state)
  *  another, so one pass over the sorted order groups them, and each is compared against its
  *  group's first member rather than its predecessor so that a long run of near-equal values
  *  cannot drift a group away from where it started. */
-static std::vector<int> groupByFingerprint(const std::vector<const Surveyed*>& members,
+/*! \brief Reads one line of output_thread_<id>.txt back into the record that wrote it.
+ *
+ *  The survey no longer keeps its states in memory -- at ten million of them the vector and its
+ *  engaged lists are about 1.5 GB, and every number is already on disk, written as the state was
+ *  visited.  So the endgame reads them back instead.  This is the inverse of the line the survey
+ *  writes, and the two have to be changed together.
+ *
+ *  Returns false for a blank or comment line, which is how the caller skips headers. */
+static bool parseSurveyedLine(const std::string& line, Surveyed& out)
+{
+    if (line.empty() || line[0]=='#') return false;
+    const std::size_t firstBar= line.find('|');
+    if (firstBar == std::string::npos) return false;
+    const std::size_t secondBar= line.find('|', firstBar+1);
+    if (secondBar == std::string::npos) return false;
+
+    std::istringstream metrics(line.substr(0, firstBar));
+    int engagedCount= 0;
+    if (!(metrics >> out.nodes >> engagedCount >> out.fused >> out.expelled
+                  >> out.corrugation >> out.density >> out.unrelaxed >> out.tethered
+                  >> out.spring >> out.full >> out.surfaceLo >> out.surfaceHi))
+        return false;
+
+    out.engaged.clear();
+    out.engaged.reserve(engagedCount);
+    std::istringstream engages(line.substr(firstBar+1, secondBar-firstBar-1));
+    for (int i; engages >> i; ) out.engaged.push_back(i);
+    return (int)out.engaged.size() == engagedCount;
+}
+
+/*! \brief Walks every surveyed state, in a fixed order, without holding them all.
+ *
+ *  Thread order then line order within each file.  Fixed, because the index a state gets here is
+ *  how the shortlist refers to it afterwards: the selection keeps indices, and a second walk
+ *  parses the chosen lines in full.  Two sequential reads of the output cost a minute or so and
+ *  save the better part of two gigabytes.
+ *
+ *  \return how many state lines were seen. */
+static long long forEachSurveyedState(
+        const std::string& outputDirectory, const int numThreads,
+        const std::function<void(long long, const std::string&)>& visit)
+{
+    long long index= 0;
+    std::string line;
+    for (int thread= 0; thread < numThreads; ++thread)
+    {
+        std::ifstream in(outputDirectory + "/output_thread_" + std::to_string(thread) + ".txt");
+        if (!in.is_open()) continue;              // a thread that surveyed nothing wrote no file
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0]=='#') continue;
+            visit(index, line);
+            ++index;
+        }
+    }
+    return index;
+}
+
+static std::vector<int> groupByFingerprint(const std::vector<Fingerprint>& fingerprints,
                                            const double tolerance)
 {
-    std::vector<std::vector<double>> fingerprints(members.size());
-    for (std::size_t i=0; i<members.size(); ++i)
-        fingerprints[i]= stateFingerprint(*members[i]);
+    const std::vector<Fingerprint>& members= fingerprints;
 
     std::vector<int> order(members.size());
     for (std::size_t i=0; i<order.size(); ++i) order[i]= (int)i;
@@ -544,6 +613,168 @@ static std::vector<int> groupByFingerprint(const std::vector<const Surveyed*>& m
     return group;
 }
 
+
+/*! \brief Appends one LAMMPS dump snapshot to \p out as an extended-XYZ frame.
+ *
+ *  The relaxed structure comes back in LAMMPS's own frame.  energy() gets there by rotating with
+ *  R -- the cell vectors as rows, each normalised -- and hands LAMMPS a box whose extents are the
+ *  diagonal of R*box, so the whole construction already assumes the three cell vectors are
+ *  mutually orthogonal, which makes R orthogonal and R^T its inverse.  Undoing it here puts the
+ *  relaxed atoms back where the undeformed and deformed frames of the same state are, so the
+ *  three overlay in a viewer instead of sitting in two different coordinate systems.
+ *
+ *  Atoms wrapped across the periodic y and z faces on the way in come back in the image LAMMPS
+ *  left them in, which is the right structure a cell away, not a wrong one.
+ *
+ *  \p latticeLine is copied verbatim from the deformed frame: it is the same cell, and writing
+ *  it identically is what lets a viewer treat the three frames as one trajectory.
+ */
+static bool appendDumpAsXyzFrame(const std::string& dumpFile,
+                                 const Eigen::Matrix3d& configBox,
+                                 const std::string& latticeLine,
+                                 double radius,
+                                 std::ostream& out)
+{
+    std::ifstream file(dumpFile);
+    if (!file.is_open()) return false;
+
+    Eigen::Matrix3d R= configBox.transpose();
+    for (int i=0; i<3; ++i) R.row(i).normalize();
+    const Eigen::Matrix3d backToOilab= R.transpose();
+
+    std::string line;
+    int count= 0;
+    std::vector<std::array<double,4>> atoms;   // type, x, y, z
+    while (std::getline(file, line))
+    {
+        if (line.rfind("ITEM: NUMBER OF ATOMS",0)==0) {
+            std::getline(file, line);
+            count= std::stoi(line);
+        }
+        else if (line.rfind("ITEM: ATOMS",0)==0) {
+            atoms.reserve(count);
+            for (int i=0; i<count && std::getline(file,line); ++i) {
+                std::istringstream fields(line);
+                double id, type, x, y, z;
+                if (!(fields >> id >> type >> x >> y >> z)) return false;
+                const Eigen::Vector3d back= backToOilab*Eigen::Vector3d(x,y,z);
+                atoms.push_back({type, back(0), back(1), back(2)});
+            }
+            break;
+        }
+    }
+    if (atoms.empty()) return false;
+
+    out << atoms.size() << "\n" << latticeLine << "\n";
+    for (const auto& a : atoms)
+        out << (int)a[0] << " " << std::setprecision(17) << a[1] << " " << a[2] << " " << a[3]
+            << " " << radius << "\n";
+    return true;
+}
+
+/*! Reads \p path -- a complete extended-XYZ frame -- straight through to \p out. */
+static bool appendXyzFrame(const std::string& path, std::ostream& out)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) return false;
+    out << file.rdbuf();
+    return true;
+}
+
+/*! The `Lattice=...` line of an extended-XYZ file, which is its second line. */
+static std::string latticeLineOf(const std::string& path)
+{
+    std::ifstream file(path);
+    std::string line;
+    if (!std::getline(file, line)) return "";
+    if (!std::getline(file, line)) return "";
+    return line;
+}
+
+/*! \brief The permutations of the coincidence sites induced by the symmetries of the site set.
+ *
+ *  facetedGbTreeStrategy.txt section 3.2 argues that canonicalising point sets under the CSL
+ *  point group and the in-plane translations is worth more than the low-index filter, because
+ *  it prunes the frontier rather than the leaves, and that the factors multiply down the tree.
+ *  Acting on that needs the group, and the group is easier found than derived.
+ *
+ *  Found rather than derived: rather than work out which operations the bicrystal ought to
+ *  admit, every plausible one is APPLIED to the site set and kept only if it reproduces it.
+ *  The pool is the eight axis-aligned sign flips -- the cell vectors here are mutually
+ *  orthogonal, which is already assumed by energy()'s rotation -- each combined with the
+ *  translations that could map one site onto another.  Fixing a source site and sending it to
+ *  each site in turn enumerates every translation that has a chance of working, so the search
+ *  is complete over this pool at 8 * n hypotheses, and each is checked in full.
+ *
+ *  What comes back are permutations of site indices.  Two engagement patterns related by one of
+ *  them are the same boundary in a different place or orientation, so a sweep need build only
+ *  one of each orbit.
+ *
+ *  What the count is: the number of distinct PERMUTATIONS, which is the order of the image of
+ *  the symmetry group in S_n, not the order of the group itself.  Operations that act the same
+ *  way on these particular sites collapse to one entry -- on a 2x2 grid in a cell the eight
+ *  sign flips and four translations induce only four distinct permutations, and a lone site
+ *  gives one.  That quotient is the right measure here, because permutations are what
+ *  canonicalisation prunes with; an operation that moves no site prunes nothing.
+ *
+ *  The identity is always present, so the result is never empty. */
+static std::vector<std::vector<int>> siteSymmetries(
+        const std::vector<Eigen::Vector3d>& sites,
+        const std::function<Eigen::Vector3d(const Eigen::Vector3d&)>& wrap)
+{
+    const int n= static_cast<int>(sites.size());
+    std::vector<std::vector<int>> permutations;
+    if (n==0) return permutations;
+
+    // Sites are matched by a rounded key, at the same 1e-6 A the site deduplication above uses.
+    const auto key= [](const Eigen::Vector3d& p) {
+        return std::array<long long,3>{ (long long)std::llround(p(0)*1.0e6),
+                                        (long long)std::llround(p(1)*1.0e6),
+                                        (long long)std::llround(p(2)*1.0e6) };
+    };
+    std::map<std::array<long long,3>,int> indexOf;
+    for (int i=0; i<n; ++i) indexOf[key(wrap(sites[i]))]= i;
+
+    std::set<std::vector<int>> distinct;
+    for (int signs=0; signs<8; ++signs)
+    {
+        Eigen::Matrix3d Q= Eigen::Matrix3d::Zero();
+        Q(0,0)= (signs & 1) ? -1.0 : 1.0;
+        Q(1,1)= (signs & 2) ? -1.0 : 1.0;
+        Q(2,2)= (signs & 4) ? -1.0 : 1.0;
+        for (int target=0; target<n; ++target)
+        {
+            // The translation that sends site 0 where this hypothesis wants it.
+            const Eigen::Vector3d shift= sites[target] - Q*sites[0];
+            std::vector<int> image(n, -1);
+            std::vector<char> hit(n, 0);
+            bool ok= true;
+            for (int i=0; i<n && ok; ++i) {
+                const auto found= indexOf.find(key(wrap(Q*sites[i] + shift)));
+                if (found == indexOf.end() || hit[found->second]) ok= false;
+                else { image[i]= found->second; hit[found->second]= 1; }
+            }
+            if (ok) distinct.insert(image);
+        }
+    }
+    permutations.assign(distinct.begin(), distinct.end());
+    return permutations;
+}
+
+/*! The lexicographically least image of \p sites under \p permutations: one representative per
+ *  orbit, so counting distinct canonical forms counts orbits. */
+static std::vector<int> canonicalSiteSet(const std::vector<int>& sites,
+                                         const std::vector<std::vector<int>>& permutations)
+{
+    std::vector<int> best;
+    std::vector<int> image(sites.size());
+    for (const auto& permutation : permutations) {
+        for (std::size_t i=0; i<sites.size(); ++i) image[i]= permutation[sites[i]];
+        std::sort(image.begin(), image.end());
+        if (best.empty() || image < best) best= image;
+    }
+    return best;
+}
 
 /*! \brief A tally of the states a pass could not finish, keeping one full report of each kind.
  *
@@ -679,10 +910,31 @@ int main()
     // Flat = the original enumeration (CSL shifts along the boundary); Full = ball + slab;
     // Sites = coincidence points first, with the two grains displaced independently.
     const GbShiftSearch searchMode        = GbShiftSearch::Sites;
-    // FLAT RUN.  Zero keeps the coincidence points exactly on the boundary plane, |s.n| = 0, so
-    // every state this run builds has a planar boundary.
-    const double slabHalfThickness        = 0.0;   // Angstrom
-    // Choose how far the atoms in grain A and B can move to get to the selected CSL point
+    // ONE LAYER OFF THE FLAT PLANE.  Zero keeps the coincidence points exactly on the boundary
+    // plane, |s.n| = 0, and every state built is then planar.  The points live on the half-DSCL
+    // lattice, whose planes parallel to the boundary stand 0.2858 A apart here -- the (310)
+    // interplanar spacing 1.14316 A quartered -- so a slab anywhere in (0.2858, 0.5716) admits
+    // the first layer either side and nothing beyond it.  0.40 sits in the middle of that
+    // window rather than at its edge, so the layer cannot be lost to rounding.
+    //
+    // Measured on this boundary: 231 coincidence nodes at 0.0 against 879 at 0.40, and after
+    // symmetricDisplacementsOnly 21 candidates against 57.  The next layers are at 0.5716 and
+    // 0.8574 A, giving 1215 and 1851 nodes.
+    const double slabHalfThickness        = 0.40;  // Angstrom
+    // How far an atom of either grain may move to reach the coincidence point.
+    //
+    // THE MOST EXPENSIVE KNOB IN THIS FILE.  A site admits a node for every pair (atom of A,
+    // atom of B) within dMax of it, so the candidate count grows like the product of two
+    // neighbourhoods -- of order dMax^6 -- and the state count grows combinatorially in the
+    // candidates on top of that.  Going from 21 candidates to 57 took this boundary from 26,879
+    // states to 10,683,931, a factor of 397; a further doubling of the candidates would put it
+    // far past maxStates.  Raise it only after reading the "states to build" line the sweep
+    // prints during setup, which is where a settings change of this kind shows its true cost.
+    //
+    // The scale to judge it against is Cu's nearest-neighbour distance, a/sqrt(2) = 2.556 A,
+    // which is also b here: 1.95 is 0.76 of it.  Past a full neighbour distance an atom would
+    // be asked to travel further than to its neighbour's own site, which is not a displacement
+    // field any more, so 2.556 is a ceiling rather than a target.
     const double dMax                     = 1.95;  // Angstrom
     // Keep only the nodes whose two grains move by equal and opposite amounts, u_A = -u_B, so
     // that the coincidence point is the midpoint of the pair of atoms that meets there.
@@ -704,6 +956,10 @@ int main()
     // -- but only just larger: at four times the atomic radius the markers sat over the boundary
     // they were meant to annotate and made the structure harder to read, not easier.
     const double siteMarkerRadius         = 0.10;
+    // The radius box() gives an ordinary atom.  Repeated here because the tethered frame is
+    // built from a LAMMPS dump, which carries no radius, and it has to match the other two
+    // frames or the atoms change size halfway through the trajectory.
+    const double atomMarkerRadius         = 0.05;
     // Exclude the nodes that do nothing but slide the grains along the tilt axis.
     //
     // A node whose two displacements both run along the axis, and both carry their atom a whole
@@ -749,9 +1005,15 @@ int main()
     // but keeping the result is what made the sweep unaffordable, at tens of gigabytes of files
     // that nobody opens.  Only the shortlist is kept.
     //
+    // Whether the three whole-sweep orderings are written.  Off: at 10.7M states each row
+    // carries an 879-long signature, so the three tables come to about 60 GB of files that
+    // exist only to be sorted -- and every number in them is already in the per-thread output
+    // this pass writes as it goes.  Turn it back on for a sweep small enough that the tables
+    // are worth having.
+    const bool writeSortedTables          = false;
     // How many states to keep per level of engagement, where the level is the number of
     // coincidences the structure realised, not the number the enumeration engaged.
-    const int shortlistTop                = 40;
+    const int shortlistTop                = 10000;
     // How many states to build from the ranking over the whole sweep, for each of the three
     // energies, on top of the per-level shortlist.
     //
@@ -760,7 +1022,10 @@ int main()
     // states are not necessarily built, since a level's 41st state can undercut another level's
     // 1st.  These fill that in, and there is one set per energy because the three disagree about
     // which states are good.  Zero switches them off.
-    const int globalTop                   = 100;
+    // Zero: the shortlist is per level and nothing else, as asked.  The global ranking would
+    // otherwise add 100 states per energy on top, which is a different question from "the best
+    // hundred at each complexity".
+    const int globalTop                   = 0;
     // Which energy the ranking is taken on.  Tethered continues what the earlier runs ranked on;
     // Full ranks by the boundary each state relaxes into.
     const RankBy shortlistRankBy          = RankBy::Tethered;
@@ -772,9 +1037,12 @@ int main()
     // Refuse to start a run longer than this many states.  Each one is a mesostate construction
     // and, with energies on, a LAMMPS minimization.
     //
-    // The settings above enumerate 921599 states; this leaves room to widen them a little
-    // without the run refusing to start, while still catching a setting that blows the count up.
-    const long long maxStates             = 1200000;
+    // The settings above enumerate 10683931 states -- counted, not estimated, by walking them
+    // with the guard lifted.  Opening the slab to the first off-plane layer takes the candidate
+    // count from 21 to 57 and the states from 26879 to that, a factor of 397, so the old
+    // 1200000 would refuse to start.  This leaves room to widen the settings a little while
+    // still catching one that blows the count up.
+    const long long maxStates             = 12000000;
     const double tMax                     = 0.99;   // ball radius, in units of b
     const double tPerpMax                 = 0.99;   // slab half-thickness, in units of b
     // The translations that give well spread out flat sites point along the GB normal, with
@@ -788,6 +1056,15 @@ int main()
     const bool minimizeInLammps           = true;  // relax before reading the energy
     const double tetherHalfWidth          = 4.0;   // Angstrom; 0 = full minimisation
     const double tetherStiffness          = 10.0;  // eV/Angstrom^2
+    // Run the tethered relaxation only.  The free one is a second, independent minimisation of
+    // every state and costs 4.6x the tethered one -- measured, 334 ms against 73 ms per state --
+    // so dropping it removes 80% of the LAMMPS time rather than half.  With it off, Relaxations
+    // ::full stays zero and the sortedByFull ordering is not written.
+    //
+    // This assignment overrides the OILAB_FREE_RELAXATION default in Lammps.h.  It happens
+    // before any thread starts, which is the only safe moment: the flag is read inside every
+    // LAMMPS call.
+    const bool freeRelaxation             = false;
     const int numThreads                  = defaultThreadCount();
     // LAMMPS runs in this process, through the library.  Nothing here names an `lmp` binary,
     // and the potential is handed to LAMMPS as one absolute path, resolved once: each thread
@@ -807,6 +1084,9 @@ int main()
                                                                   : "Sites (coincidence points "
                                                                     "first)") << std::endl;
 
+    // Before any thread starts, so that every LAMMPS call sees it.
+    runFreeRelaxation = freeRelaxation;
+
     // A missing potential is worth catching here rather than inside the first relaxation, where
     // it would come back as a LAMMPS error on one thread part-way through a sweep.
     bool energiesRequested = computeEnergies;
@@ -818,6 +1098,9 @@ int main()
     if (energiesRequested)
         std::cout << "energies = LAMMPS library, potential " << potentialFile
                   << (minimizeInLammps ? ", minimized" : ", unrelaxed") << std::endl;
+    if (energiesRequested)
+        std::cout << "relaxations = " << (runFreeRelaxation ? "tethered and free"
+                                                            : "tethered only") << std::endl;
     if (energiesRequested && minimizeInLammps)
         std::cout << "relaxation = "
                   << (tetherHalfWidth > 0.0
@@ -1170,6 +1453,39 @@ int main()
                           << " (engaged)" << std::endl;
             }
 
+            // ---- what symmetry is available, and what it would be worth ------------------
+            // Measured before anything uses it: section 3.2 of facetedGbTreeStrategy.txt claims
+            // canonicalisation is the highest-value addition, and that claim is a number.
+            {
+                const auto permutations= siteSymmetries(distinctSites, wrapSite);
+                std::cout << "site symmetry group order : " << permutations.size() << std::endl;
+
+                // Orbits at small depths, by brute force over all subsets of that size.  Only
+                // the shallow depths are enumerable this way, which is exactly the range the
+                // tree's root occupies.
+                const int sites= (int)distinctSites.size();
+                for (int depth=1; depth<=3 && depth<=sites; ++depth) {
+                    std::set<std::vector<int>> orbits;
+                    std::vector<int> pick(depth);
+                    const std::function<void(int,int)> walk= [&](const int start, const int left)
+                    {
+                        if (left==0) { orbits.insert(canonicalSiteSet(pick, permutations)); return; }
+                        for (int i=start; i<=sites-left; ++i) {
+                            pick[depth-left]= i;
+                            walk(i+1, left-1);
+                        }
+                    };
+                    walk(0, depth);
+                    long long raw= 1;
+                    for (int i=0; i<depth; ++i) raw= raw*(sites-i)/(i+1);
+                    std::cout << "  depth " << depth << " : " << raw << " subsets -> "
+                              << orbits.size() << " orbits  (x"
+                              << std::setprecision(3)
+                              << (double)raw/(double)std::max<std::size_t>(1,orbits.size())
+                              << " reduction)" << std::endl;
+                }
+            }
+
             const int n= static_cast<int>(basisPairs.size());
             if (n==0)
                 throw std::runtime_error("No (t,s) pair places both of its nodes on a lattice.");
@@ -1274,11 +1590,20 @@ int main()
             // regenerate or clear, and results are not; keeping them apart means no cleanup of
             // one can reach the other.  Nothing is left in the working directory: LAMMPS runs in
             // this process and writes no scratch of its own.
+            // The name carries every setting that changes WHAT IS IN the directory, not just
+            // some of them.  axisScaling and slabHalfThickness were missing, so a run at one
+            // cell size silently overwrote another's results -- three sweeps at axisScaling 1,
+            // 2 and 3 all landed in the same folder before this was noticed.
+            std::ostringstream slabTag;
+            slabTag << std::fixed << std::setprecision(2) << slabHalfThickness;
             const std::string outputDirectory=
                 outputRoot + "/" + boundaryDirectory + "/"
                 + (searchMode==GbShiftSearch::Flat ? "flat" : "full")
                 + "_maxEngaged"
-                + (maxEngaged > 0 ? std::to_string(maxEngaged) : std::string("all"));
+                + (maxEngaged > 0 ? std::to_string(maxEngaged) : std::string("all"))
+                + "_axisScaling" + std::to_string(axisScaling)
+                + "_slab" + slabTag.str()
+                + (symmetricDisplacementsOnly ? "_sym" : "_nosym");
             // Where pass 2 builds the configurations of the states it keeps, before renaming
             // them into place beside the rest of that state's output.  Pass 1 writes nothing at
             // all: it hands its atoms straight to LAMMPS, and nothing downstream wants 921599
@@ -1369,16 +1694,33 @@ int main()
             // no synchronisation and the totals are core-seconds rather than wall-clock: that is
             // what says which phase to attack, since wall-clock hides everything behind whichever
             // phase happens to be running when a thread stalls.
-            struct Phases { double construct=0, box=0, coincidences=0, energy=0; long long states=0; };
+            // criticalWait is time spent BLOCKED at the critical section, criticalHeld is time
+            // spent inside it.  They are separated because they say different things: held time
+            // is the serial fraction, and wait time is what that serial fraction costs the other
+            // 51 threads.  Amdahl means a held time of even a millisecond caps the whole sweep
+            // at a thousand states a second however many cores are thrown at it.
+            struct Phases { double construct=0, box=0, coincidences=0, energy=0;
+                            double criticalWait=0, criticalHeld=0; long long states=0; };
             std::vector<Phases> perThread(numThreads);
             const auto tick= []{ return std::chrono::steady_clock::now(); };
             const auto secondsSince= [](const std::chrono::steady_clock::time_point& t)
             { return std::chrono::duration<double>(std::chrono::steady_clock::now()-t).count(); };
             const auto passOneBegan= tick();
 
-            std::vector<Surveyed> surveyed;
-            surveyed.reserve(subsets.size());
+            // The survey keeps NOTHING.  Every state's numbers and its full signature go to
+            // this thread's output file as it is visited, and the endgame reads them back; at ten
+            // million states the vector this replaces was about 1.5 GB of records and engaged
+            // lists, none of which said anything the file does not.
+            long long surveyedStates= 0;
             long long visited= 0;
+            // Carried between progress prints so each one can report the cost of the INTERVAL
+            // rather than of the run so far.  A cumulative average cannot show a phase growing:
+            // it is dominated by the early states, which is exactly the part that was fast.
+            Phases reportedLast;
+            long long reportedVisited= 0;
+            long long reportedIterations= 0, reportedRelaxations= 0;
+            long long reportedMemKB= 0, reportedMemSamples= 0;
+            auto reportedAt= std::chrono::steady_clock::now();
             const long long progressEvery=
                 std::max<long long>(1, (long long)subsets.size()/200);
             std::ofstream out_file;
@@ -1407,8 +1749,13 @@ int main()
                                     "# signature = the same thing in full, one 0/1 per ensemble\n"
                                     "#   member; this is what constructMesoState() takes, so a\n"
                                     "#   state can be rebuilt or inspected from this line alone\n"
+                                    "# surfaceLo/surfaceHi = where the deformed surface sits,\n"
+                                    "#   in Angstrom along the boundary normal; equal values mean\n"
+                                    "#   a flat boundary, and both non-zero means flat but off the\n"
+                                    "#   nominal plane\n"
                                     "# nodes  engaged  fused  expelled  corrugation  density"
-                                    "  unrelaxed  tethered  spring  full  |  engages"
+                                    "  unrelaxed  tethered  spring  full  surfaceLo  surfaceHi"
+                                    "  |  engages"
                                     "  |  signature\n";
                     else
                     {
@@ -1431,8 +1778,7 @@ int main()
                     // The configuration stays in memory.  It used to be written to a scratch
                     // file because LAMMPS read a file and the coincidence count re-read it;
                     // LAMMPS takes its atoms directly now, and nothing in this pass keeps the
-                    // state, so the two extended-XYZ files are simply not written.  Measured at
-                    // 23% of box().
+                    // state, so the two extended-XYZ files are simply not written.  
                     int expelled= 0, droppedCoincidences= 0;
                     GbMesoState<3>::Configuration configuration;
                     mark= tick();
@@ -1443,6 +1789,8 @@ int main()
                     Surveyed record;
                     record.engaged    = engaged;
                     record.corrugation= highest-lowest;
+                    record.surfaceLo  = lowest;
+                    record.surfaceHi  = highest;
 
                     mark= tick();
                     const Coincidences realized= countCoincidences(
@@ -1470,28 +1818,132 @@ int main()
                         record.full     = relaxed.full;
                     }
 
+                    // ROUND-TRIP PRECISION on everything stateFingerprint() reads.  The survey
+                    // is no longer kept in memory, so this file IS the state as far as the
+                    // shortlist is concerned, and the duplicate test compares energies against a
+                    // tolerance of 1e-6.  Written at eight decimals the read-back values are
+                    // close decimal neighbours of the computed ones, which is near enough to
+                    // that tolerance to move states between families: at axisScaling 1 it merged
+                    // level 1 into 13 families where the doubles give 17.  Seventeen significant
+                    // digits is what a double survives, so the read-back is the same number.
+                    // The same lesson as section 5.2a of performanceVsOldFormulation.txt.
                     std::ostringstream line;
                     line << record.nodes << "  " << record.engaged.size() << "  " << record.fused
                          << "  " << record.expelled
-                         << "  " << std::fixed << std::setprecision(4) << record.corrugation
-                         << "  " << std::setprecision(8) << record.density
+                         << "  " << std::setprecision(17)
+                         << record.corrugation
+                         << "  " << record.density
                          << "  " << record.unrelaxed << "  " << record.tethered
-                         << "  " << record.spring << "  " << record.full << "  | ";
+                         << "  " << record.spring << "  " << record.full
+                         << "  " << record.surfaceLo
+                         << "  " << record.surfaceHi << "  | ";
                     for (const int i : record.engaged) line << " " << i;
                     line << "  |  " << fullSignature(record.engaged);
 
                     ++phase.states;
+
+                    // OUTSIDE the critical section, deliberately.  out_file is private to the
+                    // thread -- each opens its own output_thread_<id>.txt -- so this write is
+                    // shared with nobody and needs no lock.  Holding one across it serialised
+                    // about 680 bytes of formatted I/O per state on all 52 threads, for a file
+                    // none of them contend for.
+                    if (out_file.is_open()) out_file << line.str() << "\n";
+
+                    const auto atCriticalGate= tick();
 #pragma omp critical (report)
                     {
-                        surveyed.push_back(std::move(record));
-                        if (out_file.is_open()) out_file << line.str() << "\n";
+                        // All that is shared now is the counter: the file write is this
+                        // thread's own and happens outside, and the record itself is not kept.
+                        const auto insideCritical= tick();
+                        ++surveyedStates;
                         // A line per state would be a million lines of screen for a sweep whose
                         // point is that nobody reads it state by state; pass 2 reports in full.
                         if (++visited % progressEvery == 0 || visited == (long long)subsets.size())
+                        {
                             std::cout << "  surveyed " << visited << " / " << subsets.size()
                                       << "  (" << (100*visited)/(long long)subsets.size()
                                       << "%)" << std::endl;
+                            // What the memo is doing right now, not over the run so far.  A
+                            // sweep that decays does so for one of a few reasons and this line
+                            // separates them; see GbFacet::memoStatistics.
+                            if (GbFacet::reportMemoStatistics)
+                                std::cout << "    " << GbFacet::memoStatistics() << std::endl;
+
+                            // Where the time went over this interval.  Summed across threads, so
+                            // these are core-ms per state; the pool supplies numThreads core-ms
+                            // per ms of wall, and "other" is whatever the phases do not claim --
+                            // the walk, the allocator, the file write, anything unmeasured.
+                            {
+                                Phases now;
+                                for (const auto& q : perThread) {
+                                    now.construct+= q.construct;       now.box+= q.box;
+                                    now.coincidences+= q.coincidences; now.energy+= q.energy;
+                                    now.criticalWait+= q.criticalWait; now.criticalHeld+= q.criticalHeld;
+                                }
+                                const long long dStates= visited - reportedVisited;
+                                const double dWall= std::chrono::duration<double>(
+                                    std::chrono::steady_clock::now()-reportedAt).count();
+                                if (dStates > 0 && dWall > 0.0)
+                                {
+                                    const auto ms= [dStates](const double a, const double b)
+                                    { return 1000.0*(a-b)/static_cast<double>(dStates); };
+                                    const double claimed= (now.construct-reportedLast.construct)
+                                                        + (now.box-reportedLast.box)
+                                                        + (now.coincidences-reportedLast.coincidences)
+                                                        + (now.energy-reportedLast.energy)
+                                                        + (now.criticalWait-reportedLast.criticalWait);
+                                    const double supplied= numThreads*dWall;
+                                    std::cout << "    [phase core-ms/state]"
+                                       << " construct "  << std::fixed << std::setprecision(2)
+                                                         << ms(now.construct,reportedLast.construct)
+                                       << " | box "      << ms(now.box,reportedLast.box)
+                                       << " | coinc "    << ms(now.coincidences,reportedLast.coincidences)
+                                       << " | lammps "   << ms(now.energy,reportedLast.energy)
+                                       << " | critWait " << ms(now.criticalWait,reportedLast.criticalWait)
+                                       << " | critHeld " << ms(now.criticalHeld,reportedLast.criticalHeld)
+                                       << " | other "    << 1000.0*(supplied-claimed)/dStates
+                                       << "  (wall "     << std::setprecision(1)
+                                                         << 1000.0*dWall/dStates << " ms/state)"
+                                       << std::endl;
+                                    // The minimiser's own workload over the same interval.  If
+                                    // lammps core-ms/state climbs while this stays put, the time
+                                    // is not going into minimisation steps.
+                                    const long long it= minimizeIterations.load(
+                                                            std::memory_order_relaxed);
+                                    const long long rx= minimizeRelaxations.load(
+                                                            std::memory_order_relaxed);
+                                    const long long dIt= it-reportedIterations;
+                                    const long long dRx= rx-reportedRelaxations;
+                                    if (dRx > 0)
+                                        std::cout << "    [minimiser] " << dRx
+                                                  << " relaxation(s), mean "
+                                                  << std::setprecision(1)
+                                                  << (double)dIt/(double)dRx << " iterations"
+                                                  << ", capped so far "
+                                                  << minimizeCapped.load(std::memory_order_relaxed)
+                                                  << std::endl;
+                                    reportedIterations= it; reportedRelaxations= rx;
+
+                                    const long long mk= lammpsMemoryKB.load(std::memory_order_relaxed);
+                                    const long long msamp= lammpsMemorySamples.load(std::memory_order_relaxed);
+                                    const long long dMk= mk-reportedMemKB;
+                                    const long long dMs= msamp-reportedMemSamples;
+                                    if (dMs > 0)
+                                        std::cout << "    [lammps mem] mean "
+                                                  << std::setprecision(3)
+                                                  << (double)dMk/(double)dMs/1024.0
+                                                  << " MB/state, peak "
+                                                  << lammpsMemoryPeakKB.load(std::memory_order_relaxed)/1024.0
+                                                  << " MB" << std::endl;
+                                    reportedMemKB= mk; reportedMemSamples= msamp;
+                                }
+                                reportedLast= now; reportedVisited= visited;
+                                reportedAt= std::chrono::steady_clock::now();
+                            }
+                        }
+                        phase.criticalHeld+= secondsSince(insideCritical);
                     }
+                    phase.criticalWait+= secondsSince(atCriticalGate) - 0.0;
                 }
                 // An exception that escapes a parallel region terminates the program, so
                 // everything the construction can throw is caught here, not just runtime_error.
@@ -1512,9 +1964,11 @@ int main()
                 for (const auto& p : perThread) {
                     total.construct+= p.construct; total.box+= p.box;
                     total.coincidences+= p.coincidences; total.energy+= p.energy;
+                    total.criticalWait+= p.criticalWait; total.criticalHeld+= p.criticalHeld;
                     total.states+= p.states;
                 }
-                const double accounted= total.construct+total.box+total.coincidences+total.energy;
+                const double accounted= total.construct+total.box+total.coincidences+total.energy
+                                      + total.criticalWait;
                 const double wall= secondsSince(passOneBegan);
                 const std::string path= outputDirectory + "/profile.txt";
                 std::ofstream report(path);
@@ -1550,7 +2004,18 @@ int main()
                     "re-read that file and group atoms that met");
                 row("relaxations (LAMMPS)",total.energy,
                     "both minimisations, in one invocation");
-                report << "\n  Anything outside these four -- the walk, the manifest, the screen --\n"
+                row("critical: waiting",   total.criticalWait,
+                    "blocked at the report section while another thread holds it");
+                report << "\n  critical: held           " << std::setw(12) << std::fixed
+                       << std::setprecision(1) << total.criticalHeld
+                       << "   (" << std::setprecision(3)
+                       << (total.states ? 1000*total.criticalHeld/total.states : 0.0)
+                       << " ms/state)  the serial fraction itself\n"
+                          "  This one is not a share of the total: it is time INSIDE the lock, and\n"
+                          "  the waiting above is what it costs everyone else.  Amdahl puts a hard\n"
+                          "  ceiling of 1/held on the whole sweep, however many threads it gets --\n"
+                          "  at 1 ms/state that is a thousand states a second and no more.\n"
+                       << "\n  Anything outside these -- the walk, the manifest, the screen --\n"
                           "  is the difference between the core-seconds above and threads x wall.\n";
                 report.close();
                 std::cout << "  profile written to " << path << std::endl;
@@ -1561,13 +2026,13 @@ int main()
                           << (100*total.energy/accounted) << "%" << std::endl;
             }
 
-            std::cout << "\nstates surveyed : " << surveyed.size() << std::endl;
+            std::cout << "\nstates surveyed : " << surveyedStates << std::endl;
             std::cout << "  rejected (clash / not triangulable) : " << rejected << std::endl;
             std::cout << "  candidate states examined : " << subsets.size() << std::endl;
             reasons.report(std::cout);
             std::cout << "  numbers in " << outputDirectory << "/output_thread_<id>.txt"
                       << std::endl;
-            if (surveyed.empty())
+            if (surveyedStates == 0)
                 throw std::runtime_error("no state survived pass 1, so there is nothing to build.");
 
             // ============================================================== SHORTLIST
@@ -1583,28 +2048,60 @@ int main()
             // distinct one, so they are folded together and the survivor carries the count.
             // Families are found once over the whole sweep rather than per level, so that the
             // per-level and the global selections agree about what counts as a duplicate.
-            std::vector<const Surveyed*> everyState;
-            everyState.reserve(surveyed.size());
-            for (const auto& record : surveyed) everyState.push_back(&record);
-            std::vector<int> familyOf;
-            std::map<const Surveyed*,int> familyIndex;
-            if (shortlistDedup) {
-                familyOf= groupByFingerprint(everyState, shortlistDedupTol);
-                for (std::size_t i=0; i<everyState.size(); ++i)
-                    familyIndex[everyState[i]]= familyOf[i];
-            }
-            else {
-                // No dedup: every state is its own family, so nothing is ever folded.
-                for (std::size_t i=0; i<everyState.size(); ++i)
-                    familyIndex[everyState[i]]= (int)i;
+            // Read back only what selecting needs: the eight-number fingerprint, which carries
+            // the level (its first field is `nodes`) and every energy the ranking can use.  A
+            // state's index here is its position in the fixed walk order, and that index is what
+            // the shortlist carries until the chosen lines are parsed in full below.
+            std::cout << "\nreading the survey back for the shortlist" << std::endl;
+            std::vector<Fingerprint> fingerprints;
+            fingerprints.reserve(static_cast<std::size_t>(surveyedStates));
+            {
+                Surveyed scratch;
+                const long long seen= forEachSurveyedState(outputDirectory, numThreads,
+                    [&](const long long, const std::string& line)
+                    {
+                        if (parseSurveyedLine(line, scratch))
+                            fingerprints.push_back(stateFingerprint(scratch));
+                    });
+                if (seen != surveyedStates)
+                    throw std::runtime_error(
+                        "the per-thread files hold " + std::to_string(seen) + " state(s) but "
+                        + std::to_string(surveyedStates) + " were surveyed");
             }
 
-            std::map<int,std::vector<const Surveyed*>> byLevel;
-            for (const auto& record : surveyed) byLevel[record.nodes].push_back(&record);
+            std::vector<int> familyOf;
+            if (shortlistDedup)
+                familyOf= groupByFingerprint(fingerprints, shortlistDedupTol);
+            else {
+                // No dedup: every state is its own family, so nothing is ever folded.
+                familyOf.resize(fingerprints.size());
+                for (std::size_t i=0; i<familyOf.size(); ++i) familyOf[i]= (int)i;
+            }
+
+            // Levels, and the rank value, straight off the fingerprint: field 0 is nodes, 4 is
+            // unrelaxed, 5 tethered, 7 full -- see stateFingerprint, which the two must agree on.
+            const auto levelOf= [&fingerprints](const int i)
+            { return (int)fingerprints[i][0]; };
+            const auto rankOf= [&fingerprints](const int i, const RankBy by)
+            {
+                switch (by) {
+                    case RankBy::Unrelaxed: return fingerprints[i][4];
+                    case RankBy::Tethered:  return fingerprints[i][5];
+                    case RankBy::Full:      return fingerprints[i][7];
+                }
+                return fingerprints[i][7];
+            };
+
+            std::map<int,std::vector<int>> byLevel;
+            for (int i=0; i<(int)fingerprints.size(); ++i) byLevel[levelOf(i)].push_back(i);
 
             struct Shortlisted
             {
-                const Surveyed* record= nullptr;
+                //! Position in the fixed walk order of the per-thread files.  The record itself
+                //! is parsed from that line once the selection is settled -- only the few
+                //! thousand chosen states are ever held as records.
+                int index= -1;
+                Surveyed record;              //!< filled by the second walk, below
                 int level= 0;
                 int rank= 0;
                 int copies= 1;
@@ -1624,9 +2121,8 @@ int main()
             for (auto& [level,members] : byLevel)
             {
                 std::stable_sort(members.begin(), members.end(),
-                                 [&](const Surveyed* a, const Surveyed* b)
-                                 { return a->rankValue(shortlistRankBy)
-                                        < b->rankValue(shortlistRankBy); });
+                                 [&](const int a, const int b)
+                                 { return rankOf(a,shortlistRankBy) < rankOf(b,shortlistRankBy); });
 
                 // The whole level is walked even once `shortlistTop` distinct states are in hand:
                 // the copies of a kept state are spread through the ranking, and counting them is
@@ -1636,9 +2132,9 @@ int main()
                 std::map<int,int> seenHere;         // family -> its slot, or -1 past the cut
                 const std::size_t levelBegin= shortlist.size();
                 long long folded= 0;
-                for (const Surveyed* member : members)
+                for (const int member : members)
                 {
-                    const int family= familyIndex.at(member);
+                    const int family= familyOf[member];
                     const auto found= seenHere.find(family);
                     if (found != seenHere.end()) {
                         if (found->second >= 0) ++shortlist[found->second].copies;
@@ -1654,7 +2150,7 @@ int main()
                     std::ostringstream why;
                     why << "L" << level << "#" << rank;
                     slotOfFamily[family]= (int)shortlist.size();
-                    shortlist.push_back({member, level, rank, 1, why.str()});
+                    shortlist.push_back({member, Surveyed{}, level, rank, 1, why.str()});
                 }
                 const std::size_t kept= shortlist.size()-levelBegin;
                 std::cout << "  " << std::setw(2) << level << " node(s): "
@@ -1663,9 +2159,9 @@ int main()
                 if (kept > 0)
                     std::cout << ",  " << rankName(shortlistRankBy) << " "
                               << std::fixed << std::setprecision(6)
-                              << shortlist[levelBegin].record->rankValue(shortlistRankBy)
+                              << rankOf(shortlist[levelBegin].index, shortlistRankBy)
                               << " .. "
-                              << shortlist.back().record->rankValue(shortlistRankBy);
+                              << rankOf(shortlist.back().index, shortlistRankBy);
                 if (shortlistDedup) std::cout << ",  " << folded << " copy(s) folded in";
                 std::cout << std::endl;
             }
@@ -1685,20 +2181,21 @@ int main()
                                              {RankBy::Full,"F"}})
                 {
                     if (by == RankBy::Full && !runFreeRelaxation) continue;
-                    std::vector<const Surveyed*> ordered= everyState;
+                    std::vector<int> ordered(fingerprints.size());
+                    for (std::size_t i=0; i<ordered.size(); ++i) ordered[i]= (int)i;
                     std::stable_sort(ordered.begin(), ordered.end(),
-                                     [by](const Surveyed* a, const Surveyed* b)
-                                     { return a->rankValue(by) < b->rankValue(by); });
+                                     [&](const int a, const int b)
+                                     { return rankOf(a,by) < rankOf(b,by); });
                     std::set<int> takenHere;
                     int kept= 0, added= 0;
                     double lowest= 0.0, highest= 0.0;
-                    for (const Surveyed* record : ordered)
+                    for (const int record : ordered)
                     {
                         if (kept >= globalTop) break;
-                        const int family= familyIndex.at(record);
+                        const int family= familyOf[record];
                         if (!takenHere.insert(family).second) continue;   // a copy of one already
-                        if (kept==0) lowest= record->rankValue(by);
-                        highest= record->rankValue(by);
+                        if (kept==0) lowest= rankOf(record,by);
+                        highest= rankOf(record,by);
                         ++kept;
                         std::ostringstream why;
                         why << tag << "#" << kept;
@@ -1708,7 +2205,7 @@ int main()
                             continue;                                    // already being built
                         }
                         slotOfFamily[family]= (int)shortlist.size();
-                        shortlist.push_back({record, record->nodes, 0, 1, why.str()});
+                        shortlist.push_back({record, Surveyed{}, levelOf(record), 0, 1, why.str()});
                         ++added;
                     }
                     std::cout << "  " << std::setw(9) << rankName(by) << " : " << kept
@@ -1733,11 +2230,26 @@ int main()
             // same list of engaged indices describes a different state in an ensemble of a
             // different size.
             {
+                // These tables are the one thing that cannot stream: rows come out in rank
+                // order, and rank order is not file order, so every row has to be in hand at
+                // once.  That is why they are loaded here rather than kept all along -- and why
+                // writeSortedTables is documented as being for a sweep small enough to be worth
+                // tabulating.  At ten million states this would be the 1.5 GB the survey no
+                // longer holds, plus tens of gigabytes of output; the flag is off by default
+                // for the same reason.
+                std::vector<Surveyed> tableStates;
+                if (writeSortedTables) {
+                    tableStates.reserve(static_cast<std::size_t>(surveyedStates));
+                    Surveyed scratch;
+                    forEachSurveyedState(outputDirectory, numThreads,
+                        [&](const long long, const std::string& line)
+                        { if (parseSurveyedLine(line, scratch)) tableStates.push_back(scratch); });
+                }
                 const auto writeRanking = [&](const std::string& name, const RankBy by)
                 {
                     std::vector<const Surveyed*> ordered;
-                    ordered.reserve(surveyed.size());
-                    for (const auto& record : surveyed) ordered.push_back(&record);
+                    ordered.reserve(tableStates.size());
+                    for (const auto& record : tableStates) ordered.push_back(&record);
                     std::stable_sort(ordered.begin(), ordered.end(),
                                      [by](const Surveyed* a, const Surveyed* b)
                                      { return a->rankValue(by) < b->rankValue(by); });
@@ -1774,13 +2286,46 @@ int main()
                     }
                     std::cout << "  " << path << std::endl;
                 };
-                std::cout << "\nordering all " << surveyed.size() << " state(s) by each energy:"
-                          << std::endl;
-                writeRanking("Unrelaxed", RankBy::Unrelaxed);
-                writeRanking("Tethered",  RankBy::Tethered);
-                // Only if there is a free-relaxation energy to order by; without one the
-                // column is zero for every state and the table would rank nothing.
-                if (runFreeRelaxation) writeRanking("Full", RankBy::Full);
+                if (writeSortedTables) {
+                    std::cout << "\nordering all " << tableStates.size()
+                              << " state(s) by each energy:" << std::endl;
+                    writeRanking("Unrelaxed", RankBy::Unrelaxed);
+                    writeRanking("Tethered",  RankBy::Tethered);
+                    // Only if there is a free-relaxation energy to order by; without one the
+                    // column is zero for every state and the table would rank nothing.
+                    if (runFreeRelaxation) writeRanking("Full", RankBy::Full);
+                }
+                else
+                    std::cout << "\nsorted tables not written (writeSortedTables is off); every"
+                                 " state's numbers are in " << outputDirectory
+                              << "/output_thread_<id>.txt" << std::endl;
+            }
+
+            // ---- the chosen states, in full --------------------------------------------
+            // The selection kept indices; the records themselves are parsed here, on a second
+            // walk of the same files in the same order.  Only the shortlist is held -- a few
+            // thousand records rather than ten million.
+            {
+                std::vector<int> wantedAt(fingerprints.size(), -1);
+                for (std::size_t k=0; k<shortlist.size(); ++k)
+                    wantedAt[shortlist[k].index]= (int)k;
+                long long filled= 0;
+                Surveyed scratch;
+                forEachSurveyedState(outputDirectory, numThreads,
+                    [&](const long long index, const std::string& line)
+                    {
+                        const int slot= wantedAt[static_cast<std::size_t>(index)];
+                        if (slot < 0) return;
+                        if (parseSurveyedLine(line, scratch)) {
+                            shortlist[slot].record= scratch;
+                            ++filled;
+                        }
+                    });
+                if (filled != (long long)shortlist.size())
+                    throw std::runtime_error(
+                        "recovered " + std::to_string(filled) + " of "
+                        + std::to_string(shortlist.size()) + " shortlisted state(s) from the "
+                        "per-thread files");
             }
 
             // ================================================================ PASS 2
@@ -1791,8 +2336,9 @@ int main()
                       << " shortlisted state(s)" << std::endl;
 
             std::ofstream manifest(outputDirectory + "/states.txt");
-            manifest << "# state_<index>_0.txt = undeformed, state_<index>_1.txt = deformed,\n"
-                        "# dump.state_<index>_2 = tethered relaxation, _3 = free relaxation\n"
+            manifest << "# structures are in level_<L>.xyz, one file per engaged level, three\n"
+                        "# frames per state in the order they are listed here: 0 undeformed,\n"
+                        "# 1 deformed, 2 tethered.  State k of a level is frames 3k, 3k+1, 3k+2.\n"
                         "# nodes   = coincidences the deformed structure holds\n"
                         "# engaged = nodes the enumeration engaged to reach it\n"
                         "# fused   = atoms the relaxation deletes (one per atom past the first\n"
@@ -1842,7 +2388,7 @@ int main()
 
                 XTuplet state(ensembleSize);
                 state.setZero();
-                for (const int i : chosen.record->engaged) state(i)= 1;
+                for (const int i : chosen.record.engaged) state(i)= 1;
 
                 try {
                     const auto& mesostate= ensemble.constructMesoState(state);
@@ -1850,25 +2396,23 @@ int main()
 
                     // box() writes <name>_reference0.txt and _reference1.txt; rename them to
                     // state_<index>_<config>.txt, config 0 undeformed and 1 deformed.
+                    // Everything this state produces stays in scratch: the three frames are
+                    // concatenated into one per-level trajectory once the pass is over, so that
+                    // a level opens as a single file rather than as three hundred.
                     const std::string base= scratchDirectory + "/build" + index;
                     int expelled= 0, droppedCoincidences= 0;
                     GbMesoState<3>::Configuration configuration;
                     mesostate.box(base, &expelled, dropUnengagedCoincidences,
                                   &droppedCoincidences, &configuration);
-                    for (const int configuration : {0,1})
-                        std::filesystem::rename(
-                            base + "_reference" + std::to_string(configuration) + ".txt",
-                            outputDirectory + "/state_" + index + "_"
-                                            + std::to_string(configuration) + ".txt");
 
                     // Every site the enumeration considered, marked with whether this state
-                    // took it.  Only the undeformed configuration carries them, so the deformed
-                    // one that LAMMPS reads is untouched.
+                    // took it.  Only the undeformed frame carries them, so the deformed one that
+                    // LAMMPS reads is untouched.
                     {
                         std::vector<char> engagedSite(distinctSites.size(), 0);
-                        for (const int i : chosen.record->engaged)
+                        for (const int i : chosen.record.engaged)
                             if (siteOfIndex[i] >= 0) engagedSite[siteOfIndex[i]]= 1;
-                        appendSites(outputDirectory + "/state_" + index + "_0.txt",
+                        appendSites(base + "_reference0.txt",
                                     distinctSites, engagedSite, siteMarkerRadius);
                     }
 
@@ -1878,25 +2422,46 @@ int main()
                         mesostate.mesoStateCslVectors[2].cartesian(),
                         lammpsOverlapCutoff);
 
-                    // Both relaxed structures are kept this time, each in its own dump: _2 is
-                    // the tethered one, _3 the free one.
+                    // The tethered structure is the third frame.  The free one is not run at
+                    // all when freeRelaxation is off, so its dump path is left empty rather than
+                    // naming a file nothing writes.
+                    const std::string tetheredDump= scratchDirectory + "/dump" + index;
+                    const std::string freeDump=
+                        runFreeRelaxation ? scratchDirectory + "/dumpfree" + index : std::string();
                     GbMesoState<3>::Relaxations relaxed;
                     if (energiesRequested)
                         relaxed= mesostate.relaxations(
                             potentialFile, configuration,
                             tetherHalfWidth, tetherStiffness,
-                            std::filesystem::absolute(outputDirectory + "/dump.state_" + index
-                                                      + "_2").string(),
-                            std::filesystem::absolute(outputDirectory + "/dump.state_" + index
-                                                      + "_3").string());
+                            std::filesystem::absolute(tetheredDump).string(),
+                            freeDump.empty() ? std::string()
+                                             : std::filesystem::absolute(freeDump).string());
+
+                    // The state's own trajectory: 0 undeformed, 1 deformed, 2 tethered.
+                    {
+                        const std::string frames= scratchDirectory + "/frames" + index + ".xyz";
+                        std::ofstream trajectory(frames);
+                        appendXyzFrame(base + "_reference0.txt", trajectory);
+                        appendXyzFrame(base + "_reference1.txt", trajectory);
+                        if (energiesRequested)
+                            appendDumpAsXyzFrame(tetheredDump, configuration.box,
+                                                 latticeLineOf(base + "_reference1.txt"),
+                                                 atomMarkerRadius, trajectory);
+                        trajectory.close();
+                        std::error_code ignored;
+                        for (const std::string& spent : {base + "_reference0.txt",
+                                                         base + "_reference1.txt",
+                                                         tetheredDump, freeDump})
+                            if (!spent.empty()) std::filesystem::remove(spent, ignored);
+                    }
 
                     std::ostringstream report;
                     report << "  [" << index << "] " << chosen.level << " node(s), "
-                           << chosen.record->engaged.size() << " engaged, "
+                           << chosen.record.engaged.size() << " engaged, "
                            << chosen.copies << " copy(s), chosen as " << chosen.why
                            << "   -- built %PROGRESS%"
                            << "\n           GB signature: " << state;
-                    for (std::size_t e=0; e<chosen.record->engaged.size(); ++e)
+                    for (std::size_t e=0; e<chosen.record.engaged.size(); ++e)
                         report << "\n           " << describe(mesostate,e);
                     report << "\n           surface x.n in [" << std::fixed << std::setprecision(4)
                            << lowest << ", " << highest << "] A,  corrugation = "
@@ -1912,8 +2477,8 @@ int main()
                         report << "\n           " << droppedCoincidences
                                << " atom(s) dropped: they had drifted into coincidences this "
                                   "state did not engage";
-                    if (realized.sites < (int)chosen.record->engaged.size())
-                        report << "\n           WARNING: " << chosen.record->engaged.size()
+                    if (realized.sites < (int)chosen.record.engaged.size())
+                        report << "\n           WARNING: " << chosen.record.engaged.size()
                                << " node(s) engaged but only " << realized.sites << " realised";
                     if (energiesRequested)
                         report << "\n           density = " << std::setprecision(6)
@@ -1926,7 +2491,7 @@ int main()
                     std::ostringstream manifestLine;
                     manifestLine << index
                                  << "  " << realized.sites
-                                 << "  " << chosen.record->engaged.size()
+                                 << "  " << chosen.record.engaged.size()
                                  << "  " << realized.fused
                                  << "  " << expelled
                                  << "  " << chosen.copies
@@ -1937,7 +2502,7 @@ int main()
                                  << "  " << relaxed.tethered
                                  << "  " << relaxed.spring
                                  << "  " << relaxed.full;
-                    for (std::size_t e=0; e<chosen.record->engaged.size(); ++e)
+                    for (std::size_t e=0; e<chosen.record.engaged.size(); ++e)
                         manifestLine << "   " << describe(mesostate,e);
 
                     // Every column here is an integer, because readPostProcessingOutput() parses
@@ -1948,7 +2513,7 @@ int main()
                     signatureLine << (int)entry << "  "
                                   << (long long)std::llround(relaxed.density) << "  "
                                   << realized.sites << "  "
-                                  << fullSignature(chosen.record->engaged);
+                                  << fullSignature(chosen.record.engaged);
 
 #pragma omp critical (report)
                     {
@@ -1977,6 +2542,43 @@ int main()
             }
             manifest.close();
             signatures.close();
+
+            // ---- one trajectory per engaged level ------------------------------------------
+            // Each shortlisted state contributed three frames to its own scratch file; they are
+            // gathered here, in shortlist order, into level_<L>.xyz.  Done after the parallel
+            // loop rather than inside it for two reasons: appending to a shared file from 52
+            // threads needs a lock per state, and the order the threads finish in is not the
+            // order the shortlist is ranked in -- so frame 3k of the level file would be a
+            // different state from one run to the next.
+            {
+                std::map<int,std::vector<std::size_t>> levelMembers;
+                for (std::size_t i=0; i<shortlist.size(); ++i)
+                    levelMembers[shortlist[i].level].push_back(i);
+
+                std::cout << "\ngathering the trajectories, 3 frames per state "
+                             "(0 undeformed, 1 deformed, 2 tethered):" << std::endl;
+                for (const auto& [level, members] : levelMembers)
+                {
+                    std::ostringstream name;
+                    name << outputDirectory << "/level_" << std::setw(2) << std::setfill('0')
+                         << level << ".xyz";
+                    std::ofstream trajectory(name.str());
+                    int frames= 0;
+                    for (const std::size_t i : members) {
+                        std::ostringstream index;
+                        index << std::setw(3) << std::setfill('0') << i;
+                        const std::string frameFile=
+                            scratchDirectory + "/frames" + index.str() + ".xyz";
+                        // A state whose build threw left no frames; it is missing from the
+                        // trajectory exactly as it is missing from the manifest.
+                        if (!std::filesystem::exists(frameFile)) continue;
+                        if (appendXyzFrame(frameFile, trajectory)) frames+= 3;
+                    }
+                    trajectory.close();
+                    std::cout << "  " << name.str() << "  : " << members.size()
+                              << " state(s), " << frames << " frame(s)" << std::endl;
+                }
+            }
 
             // The scratch configurations have served their purpose; leaving a directory of
             // per-thread leftovers behind would be the small version of the problem this pass
