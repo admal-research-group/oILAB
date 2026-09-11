@@ -19,14 +19,13 @@ private:
   int countTP;
   double currentEnergy, currentDensity;
   std::ofstream output;
-  std::string lmpLocation;
   std::string potentialName;
 
 public:
   double temperature;
   std::map<StateType, double> stateEnergyMap;
 
-  CanonicalTP(const std::string &lmpLocation, const std::string &potentialName,
+  CanonicalTP(const std::string &potentialName,
               const double &temperature, const std::string &filename = "");
   double probability(const std::pair<StateType, SystemType> &proposedState,
                      const std::pair<StateType, SystemType> &currentState);

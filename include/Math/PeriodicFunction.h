@@ -5,6 +5,7 @@
 #ifndef OILAB_PERIODICFUNCTION_H
 #define OILAB_PERIODICFUNCTION_H
 
+#include <cassert>
 #include "Eigen/Dense"
 #include "unsupported/Eigen/CXX11/Tensor"
 #include <iomanip>

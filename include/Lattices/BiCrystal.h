@@ -221,6 +221,10 @@ namespace oILAB {
         typename std::enable_if<dm==2 || dm==3,std::map<IntScalarType,Gb<dm>>>::type
         generateGrainBoundaries(const LatticeDirection<dim>& d, int div=30) const;
 
+        template<int dm=dim>
+        typename std::enable_if<dm==2 || dm==3,void>::type
+        updateBoxVectors(std::vector<LatticeVector<dim>>& boxVectors,
+                              const double& orthogonality) const;
 
         /*! This function outputs/prints a 2D bicrystal (two lattices that form the GB and
          * the CSL) bounded by a box defined using
@@ -240,11 +244,10 @@ namespace oILAB {
          */
         template<int dm=dim>
         typename std::enable_if<dm==2 || dm==3,std::vector<LatticeVector<dim>>>::type
-        box(std::vector<LatticeVector<dim>>& boxVectors, 
-                const double& orthogonality, 
-                const int& dsclFactor,
-                std::string filename= "", 
-                bool orient=false) const;
+        box(const std::vector<LatticeVector<dim>>& boxVectors,
+            const int& dsclFactor,
+            std::string filename= "",
+            bool orient=false) const;
     };
     
     

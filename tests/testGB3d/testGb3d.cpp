@@ -146,7 +146,16 @@ int main() {
     std::cout << boxVectors[0].cartesian().transpose() << std::endl;
     std::cout << boxVectors[1].cartesian().transpose() << std::endl;
     std::cout << boxVectors[2].cartesian().transpose() << std::endl;
-    gb.box(boxVectors, 0.5, 2, "gb.txt", true);
+    gb.bc.updateBoxVectors(boxVectors,0.5);
+    // estimate the number of atoms (A and B, not including DSCL and CSL atoms) in the GB
+    Eigen::Matrix<long long int,dim,dim> boxVectorsIntegerCoords;
+    for (int i=0; i<dim; ++i)
+        boxVectorsIntegerCoords.col(i) = boxVectors[i];
+    std::cout << "Estimated number of atoms in the GB: "
+              << 2*abs(bc.sigma*boxVectorsIntegerCoords.template cast<double>().determinant()) << std::endl;
+
+    //
+    gb.box(boxVectors, 2, "gb.txt", true);
     std::cout << "Output box vectors = " << std::endl;
     std::cout << boxVectors[0].cartesian().transpose() << std::endl;
     std::cout << boxVectors[1].cartesian().transpose() << std::endl;

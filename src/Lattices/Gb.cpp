@@ -4,6 +4,7 @@
 #ifndef OILAB_GB_CPP
 #define OILAB_GB_CPP
 
+#include <cassert>
 #include "../../include/Lattices/Gb.h"
 
 namespace oILAB {
@@ -63,8 +64,7 @@ Gb<dim>::Gb(const BiCrystal<dim> &bc,
 
     template<int dim> template<int dm>
     typename std::enable_if<dm==2 || dm==3,std::vector<LatticeVector<dim>>>::type
-    Gb<dim>::box(std::vector<LatticeVector<dim>>& boxVectors,
-                 const double& orthogonality,
+    Gb<dim>::box(const std::vector<LatticeVector<dim>>& boxVectors,
                  const int& dsclFactor,
                  std::string filename,
                  bool orient) const
@@ -73,7 +73,7 @@ Gb<dim>::Gb(const BiCrystal<dim> &bc,
             assert((*iter).dot(bc.getReciprocalLatticeDirectionInC(nA.reciprocalLatticeVector())) == 0 &&
                    "Box vectors not parallel to the grain boundary.");
 
-        auto config= bc.box(boxVectors,orthogonality,dsclFactor);
+        auto config= bc.box(boxVectors,dsclFactor);
         std::vector<LatticeVector<dim>> configuration;
         for (const LatticeVector<dim>& latticeVector : config)
         {
@@ -244,16 +244,14 @@ Gb<dim>::Gb(const BiCrystal<dim> &bc,
 
     template class Gb<2>;
     template LatticeVector<2> Gb<2>::getPeriodVector<2>(const ReciprocalLatticeVector<2> &axis) const;
-    template std::vector<LatticeVector<2>> Gb<2>::box<2>(std::vector<LatticeVector<2>>& boxVectors,
-                                                      const double& orthogonality,
-                                                      const int& dsclFactor,
-                                                      std::string filename,
-                                                      bool orient) const;
+    template std::vector<LatticeVector<2>> Gb<2>::box<2>(const std::vector<LatticeVector<2>>& boxVectors,
+                                                         const int& dsclFactor,
+                                                         std::string filename,
+                                                         bool orient) const;
 
     template class Gb<3>;
     template LatticeVector<3> Gb<3>::getPeriodVector<3>(const ReciprocalLatticeVector<3> &axis) const;
-    template std::vector<LatticeVector<3>> Gb<3>::box<3>(std::vector<LatticeVector<3>>& boxVectors,
-                                                         const double& orthogonality,
+    template std::vector<LatticeVector<3>> Gb<3>::box<3>(const std::vector<LatticeVector<3>>& boxVectors,
                                                          const int& dsclFactor,
                                                          std::string filename,
                                                          bool orient) const;

@@ -1,0 +1,247 @@
+% Design notes: site-first enumeration with asymmetric displacements.
+%
+% A working document, not a paper.  Records the decisions taken, the scheme
+% they define, the parameters still to be chosen, and the order the work
+% should be done in.  Companion to gbShiftsEnumeration.tex (the scheme this
+% replaces), plasticDisplacement.tex and mesostateOverview.tex.
+
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{enumitem}
+\setlist[itemize]{itemsep=2pt, topsep=4pt, parsep=0pt}
+\setlist[enumerate]{itemsep=3pt, topsep=4pt, parsep=0pt}
+
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\B}{\mathcal{B}}
+\newcommand{\D}{\mathcal{D}}
+\newcommand{\nhat}{\hat{\mathbf{n}}}
+\newcommand{\dmax}{d_{\max}}
+\newcommand{\dmin}{\delta_{\min}}
+
+\title{Site-first enumeration with asymmetric displacements\\
+       \large design notes}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Decisions taken}
+
+\begin{enumerate}
+  \item \textbf{Enumerate coincidence sites first}, then the atoms that can meet
+        at each, rather than enumerating translations and deriving the sites.
+  \item \textbf{Allow the two grains to be displaced independently.} The
+        symmetric split $\pm\mathbf{t}/2$ becomes one case among many rather
+        than a constraint.
+  \item \textbf{Sites are taken from $\tfrac{1}{2}\D$}, the lattice of midpoints
+        of $\A$ and $\B$ atoms, with an optional filter restricting them to
+        $\D$.
+\end{enumerate}
+
+The third decision was reversed once during the discussion and is worth
+recording. $\D$ sites have the property that both nodal displacements are
+themselves DSC vectors, which $\tfrac{1}{2}\D$ sites do not. But the midpoint of
+an $\A$ atom and a $\B$ atom lies on $\D$ only when the translation is an
+\emph{even} DSC vector --- an index-8 sublattice --- so $\D$ sites reproduce
+only about one flat state in eight exactly. Losing the flat baseline costs more
+than the crystallographic tidiness gains: the jump
+$\mathbf{t} = \mathbf{t}_\A - \mathbf{t}_\B$ is a DSC vector either way, and it
+is the jump that carries the physics. Since $\D \subset \tfrac{1}{2}\D$,
+enumerating the larger set and filtering forecloses nothing.
+
+\section*{The scheme}
+
+\subsection*{The node record}
+
+A node is a triple $(\mathbf{s}, \mathbf{t}_\A, \mathbf{t}_\B)$, read as the two
+records $(\mathbf{t}_\A, \mathbf{s})$ and $(\mathbf{t}_\B, \mathbf{s})$ sharing a
+coincidence point:
+\begin{align*}
+  \mathbf{x}_\A &= \mathbf{s} - \mathbf{t}_\A \in \A,
+  &\mathbf{u}_\A &= \mathbf{t}_\A, \\
+  \mathbf{x}_\B &= \mathbf{s} - \mathbf{t}_\B \in \B,
+  &\mathbf{u}_\B &= \mathbf{t}_\B,
+\end{align*}
+with the jump $\mathbf{t} = \mathbf{t}_\A - \mathbf{t}_\B
+= \mathbf{x}_\B - \mathbf{x}_\A \in \D$ derived rather than stored. The present
+scheme is the special case $\mathbf{t}_\A = +\mathbf{t}/2$,
+$\mathbf{t}_\B = -\mathbf{t}/2$.
+
+\subsection*{Enumeration}
+
+\begin{enumerate}
+  \item Sites: all points of $\tfrac{1}{2}\D$ in a slab of half-thickness $T$
+        about the flat boundary, taken over one in-plane period cell.
+  \item For each site, the $\A$ atoms with
+        $\lVert \mathbf{s}-\mathbf{x}_\A \rVert \le \dmax$ and the $\B$ atoms
+        with $\lVert \mathbf{s}-\mathbf{x}_\B \rVert \le \dmax$.
+  \item Every combination of one from each is a candidate node. A site with
+        $n_\A$ and $n_\B$ atoms in range yields $n_\A n_\B$ nodes.
+\end{enumerate}
+The bound is on how far \emph{each atom} moves, independently; it implies
+$\lVert\mathbf{t}\rVert \le 2\dmax$ but is not equivalent to it.
+
+\subsection*{Validity of a mesostate}
+
+With $\Lambda$ the bicrystal box lattice, $L = \langle \mathbf{p}_1,
+\mathbf{p}_2 \rangle$ the in-plane sublattice and $\Pi$ the projection onto the
+boundary plane, a set of nodes is admissible when, pairwise:
+\begin{itemize}
+  \item $\mathbf{x}_\A \bmod \Lambda$ are distinct --- no two nodes on one $\A$ atom;
+  \item $\mathbf{x}_\B \bmod \Lambda$ are distinct --- no two nodes on one $\B$ atom;
+  \item $d_L(\mathbf{s},\mathbf{s}') \ge \dmin$, where $d_L$ is the distance
+        between the projected sites on the torus $\text{plane}/L$.
+\end{itemize}
+The third subsumes exact coincidence ($d_L = 0$) and so replaces, rather than
+supplements, a separate projected-site key. It is what removes the
+mesh-collapse failures that reject $2.5\%$ of states under the present scheme.
+
+All three are pairwise and closed under taking subsets, so admissibility is
+hereditary and can be enforced \emph{during} enumeration: a depth-first walk
+emits a state at every node of its recursion tree and discards nothing.
+
+\subsection*{Mechanics}
+
+Precompute per node its two atom classes and its site class; precompute per site
+the closed neighbourhood $N[\sigma] = \{\sigma\} \cup \{\sigma' : d_L < \dmin\}$.
+Gauss-reduce $(\mathbf{p}_1,\mathbf{p}_2)$ before any nearest-lattice-point
+rounding, or an oblique cell gives wrong minima. The walk then carries two
+boolean arrays over atom classes and an integer \emph{counts} array over sites,
+incremented over $N[\sigma]$ on descent and decremented on return.
+
+Ceiling on the size of a state:
+\[
+  \min\bigl(\,\lvert \A/\Lambda \rvert,\;
+             \lvert \B/\Lambda \rvert,\;
+             \text{packing number of the torus at radius } \dmin/2 \,\bigr).
+\]
+
+\section*{Parameters to be chosen}
+
+Three parameters replace \texttt{tMax}, \texttt{tPerpMax} and
+\texttt{sPerpMax}. \texttt{tPerpMax} disappears: it restricted the direction of
+the translation, which has no role once the region bounds the site.
+
+\begin{itemize}
+  \item $T$ --- \textbf{slab half-thickness}, the region about the flat boundary
+        from which sites are drawn. Controls how far the boundary may facet out
+        of plane. Site count grows linearly in $T$.
+  \item $\dmax$ --- \textbf{how far one atom may move} to reach its site.
+        Controls how many atoms are in range of each site, so cost grows as
+        $\dmax^3$ per side and $\dmax^6$ in the node count. The dominant cost
+        driver.
+  \item $\dmin$ --- \textbf{minimum in-plane separation of coincidence points.}
+        Physically bounded below by the scale at which two coincidence points
+        cease to be distinguishable structures --- a fraction of the
+        nearest-neighbour spacing --- and above by the in-plane site spacing,
+        past which legitimate distinct sites start being excluded wholesale.
+\end{itemize}
+\texttt{maxEngaged} and \texttt{maxStates} survive unchanged but stop being
+safety rails: they become the primary controls on the size of a sweep.
+
+\subsection*{Estimating the cost before choosing}
+
+For the $\Sigma 5$ case at hand, with $a_0 = 3.615$\,\AA{} (so
+$\rho_\A = \rho_\B = 0.0847$\,\AA$^{-3}$ and $b = 2.556$\,\AA), an in-plane cell
+area of $29.2$\,\AA$^2$, and $\lvert \D : \A \rvert = \Sigma$:
+\[
+  \rho_{\D} = \Sigma\,\rho_\A \approx 0.42\ \text{\AA}^{-3},
+  \qquad
+  \rho_{\frac{1}{2}\D} = 8\,\rho_{\D} \approx 3.4\ \text{\AA}^{-3} .
+\]
+Hence, per in-plane cell,
+\[
+  N_{\text{sites}} \approx \rho_{\frac{1}{2}\D}\times 29.2 \times 2T
+  \approx 99\,(2T)\ \text{sites per \AA{} of slab},
+  \qquad
+  n_\A(\dmax) \approx \tfrac{4}{3}\pi\,\rho_\A\,\dmax^{3}
+  \approx 0.35\,\dmax^{3},
+\]
+and the node count is $N_{\text{sites}}\,n_\A n_\B$. Some indicative
+combinations:
+\begin{itemize}
+  \item $2T = 0.5$\,\AA, $\dmax = 1.5$\,\AA: $\approx 50$ sites, $\approx 1.2$
+        atoms in range per side, order $70$ nodes.
+  \item $2T = 1$\,\AA, $\dmax = 2.0$\,\AA: $\approx 99$ sites, $\approx 2.8$ per
+        side, order $800$ nodes.
+  \item $2T = 2$\,\AA, $\dmax = 2.56$\,\AA: $\approx 198$ sites, $\approx 5.9$
+        per side, order $7000$ nodes.
+\end{itemize}
+These are averages over a uniform density and will be wrong in detail --- the
+site and atom lattices are structured, not random --- so they indicate the
+regime, not the answer.
+
+\subsection*{Reproducing the flat states}
+
+To contain every state the present enumeration can build, take
+\[
+  \dmax \ge \tfrac{1}{2}\,\texttt{tMax}\cdot b,
+  \qquad
+  T \ge \tfrac{1}{2}\,\texttt{sPerpMax}\cdot b .
+\]
+The first because the symmetric split moves each atom by half the translation.
+Note that even so the containment is at the \emph{node} level only: any
+$\dmin > 0$ removes states whose engaged sites are closer than the threshold,
+which is deliberate but means the new state set is not a superset of the old.
+
+\section*{Order of work}
+
+The parameters should be chosen from measured counts, not from the estimates
+above, which argues for building the enumerator in two stages.
+
+\begin{enumerate}
+  \item \textbf{Counting probe.} Enumerate sites and nodes and report, for
+        candidate $(T, \dmax, \dmin)$: the site count, the node count, the three
+        class counts, and the resulting ceiling. No mesostates constructed, no
+        file format committed. This is what the parameters should be chosen
+        from.
+  \item \textbf{The record and its format.} Decide the on-disk representation of
+        a node. This constrains the enumerator, the driver and the meaning of a
+        signature simultaneously, so it should be settled before any of them is
+        written.
+  \item \textbf{The enumerator proper}, replacing the translation-first search.
+  \item \textbf{\texttt{getFacetedSurfaces()}}, which is the only place the
+        symmetric split is hardcoded; it takes the triple directly.
+  \item \textbf{The driver}, whose site-grouping and clash handling become the
+        three-key walk described above.
+\end{enumerate}
+
+Untouched throughout: \texttt{GbContinuum}, \texttt{GbFacet},
+\texttt{assertFacetsGlue()} and \texttt{gluedCloudB}. All of these already take
+the two node lists independently and nowhere assume the displacements are
+opposite, so asymmetric splits need no change below the mesostate level.
+
+\section*{Consequences to expect}
+
+\begin{itemize}
+  \item Node counts of order $10^2$ to $10^4$ against the present $42$, and
+        exhaustive sweeps correspondingly out of reach: \texttt{maxEngaged}
+        carries the load.
+  \item The $62{,}399$-state sweep ceases to be a state-by-state baseline. Its
+        energies were computed with the superseded constant-per-face quadrature
+        in any case, so they need recomputing regardless; what matters is that
+        the flat reference can be rebuilt on the same footing as the faceted
+        states it is compared against, which the $\tfrac{1}{2}\D$ choice
+        preserves.
+  \item The mesh-collapse rejections disappear from the construction stage,
+        being excluded during enumeration instead.
+\end{itemize}
+
+\section*{Still open}
+
+\begin{enumerate}
+  \item Whether the slab bounds the site $\mathbf{s}$ or the reference atom
+        $\mathbf{x}_\A$. They differ by at most $\dmax$. Bounding the site
+        controls the deformed boundary, which is what ``faceted'' refers to;
+        bounding the atom is the more literal reading of ``atoms near the
+        boundary''.
+  \item Whether $\dmax$ bounds each displacement separately (assumed here) or
+        their sum.
+  \item Numerical values of $T$, $\dmax$, $\dmin$ --- to come from the counting
+        probe.
+  \item The on-disk record format.
+\end{enumerate}
+
+\end{document}

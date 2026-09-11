@@ -1,0 +1,5 @@
+# Sweep results: large, regenerable, and not something to carry in the history.
+# The directory itself is tracked so that a fresh clone has somewhere to write.
+*
+!.gitignore
+!README.md

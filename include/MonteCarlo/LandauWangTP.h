@@ -25,7 +25,6 @@ namespace oILAB {
         Eigen::MatrixXi histogram;
         std::map<StateType, std::pair<double,double>> stateDensityEnergyMap;
         std::ofstream spectrumFile;
-        std::string lmpLocation;
         std::string potentialName;
 
 
@@ -46,12 +45,10 @@ namespace oILAB {
 
 
         explicit LandauWangTP(const std::tuple<double,double,int>& energyLimits,
-                              const std::string& lmpLocation,
                               const std::string& potentialName);
 
         LandauWangTP(const std::tuple<double,double,int>& energyLimits,
                      const std::tuple<double,double,int>& densityLimits,
-                     const std::string& lmpLocation,
                      const std::string& potentialName);
 
         double probability(const std::pair<StateType,SystemType>& proposedState,

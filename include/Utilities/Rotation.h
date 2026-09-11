@@ -5,8 +5,10 @@
 #ifndef OILAB_ROTATION_H
 #define OILAB_ROTATION_H
 
+#include <cassert>
 #include<Eigen/Eigen>
 #include<numbers>
+#include<cfloat>
 
 template<int dim>
 class Rotation : public Eigen::Matrix<double,dim,dim>

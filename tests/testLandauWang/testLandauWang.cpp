@@ -2,6 +2,7 @@
 #include "../../include/Lattices/GbMesoStateEnsemble.h"
 #include "../../include/MonteCarlo/LandauWangTP.h"
 #include "../../include/MonteCarlo/MonteCarlo.h"
+#include <filesystem>
 #include <numbers>
 
 using namespace oILAB;
@@ -90,7 +91,7 @@ int main() {
     cslVectors.push_back(periodScaling * gb.getPeriodVector(rAxisA));
     cslVectors.push_back(axisScaling * axisC);
 
-    gb.box(cslVectors, 1, 1, "gb.txt");
+    gb.box(cslVectors, 1, "gb.txt");
     /*
      *  c11 = 1.0439923926128656 eV/angstrom^3
         c12 = 0.7750032094485771 eV/angstrom^3
@@ -118,12 +119,11 @@ int main() {
     }
      */
 
-    std::string potentialName = "Cu_mishin1.eam.alloy";
-    std::string lmpLocation = "/Users/Nikhil/Documents/Academic/Software/"
-                              "lammps-15May15/src/lmp_serial";
+    // LAMMPS runs in this process; the only thing it needs from here is the potential.
+    std::string potentialName =
+        std::filesystem::absolute("Cu_mishin1.eam.alloy").string();
     // LandauWangTP<XTuplet,GbMesoState<3>> landauWang(1.51, 20,30,0.78,0.96,9);
-    LandauWangTP<XTuplet, GbMesoState<3>> landauWang(
-        {1.51, 20, 30}, lmpLocation, potentialName);
+    LandauWangTP<XTuplet, GbMesoState<3>> landauWang({1.51, 20, 30}, potentialName);
 
     MonteCarlo<XTuplet, GbMesoState<3>, GbMesoStateEnsemble<3>,
                LandauWangTP<XTuplet, GbMesoState<3>>>

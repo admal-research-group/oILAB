@@ -7,6 +7,7 @@
 #ifndef gbLAB_RationalReciprocalLatticeDirection_cpp_
 #define gbLAB_RationalReciprocalLatticeDirection_cpp_
 
+#include <cassert>
 #include "../../include/Lattices/RationalReciprocalLatticeDirection.h"
 #include "../../include/Lattices/LatticeModule.h"
 

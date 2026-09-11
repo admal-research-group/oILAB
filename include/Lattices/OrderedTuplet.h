@@ -4,6 +4,7 @@
 
 #ifndef OILAB_ORDEREDTUPLET_H
 #define OILAB_ORDEREDTUPLET_H
+#include <cassert>
 #include <Eigen/Eigen>
 #include "LatticeCore.h"
 

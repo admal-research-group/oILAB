@@ -5,6 +5,7 @@
 #ifndef OILAB_OPERATOR_H
 #define OILAB_OPERATOR_H
 
+#include <cassert>
 #include "LatticeModule.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 

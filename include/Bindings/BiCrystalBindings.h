@@ -36,9 +36,21 @@ namespace pyoilab {
         cls.def_readonly("sigmaB",&BiCrystal::sigmaB);
         cls.def_readonly("csl",&BiCrystal::csl);
         cls.def_readonly("dscl",&BiCrystal::dscl);
+        cls.def("updateBoxVectors",[](const BiCrystal& self,
+                                              std::vector<PyLatticeVector>& boxPyLatticeVectors,
+                                              const double& orthogonality) {
+                          std::vector<LatticeVector> boxLatticeVectors;
+                          for(const auto& v : boxPyLatticeVectors)
+                              boxLatticeVectors.push_back(v.lv);
+                          self.updateBoxVectors(boxLatticeVectors,
+                                                orthogonality);
+                          std::vector<PyLatticeVector> pyLatticeVectors;
+                          for(const auto& v : boxLatticeVectors)
+                              boxPyLatticeVectors.push_back(PyLatticeVector(v));
+                          return boxPyLatticeVectors;
+        }, py::arg("boxVectors"), py::arg("orthogonality"));
         cls.def("box", [](const BiCrystal& self,
-                          std::vector<PyLatticeVector>& boxPyLatticeVectors,
-                          const double& orthogonality,
+                          const std::vector<PyLatticeVector>& boxPyLatticeVectors,
                           const int& dsclFactor,
                           std::string filename,
                           bool orient){
@@ -46,7 +58,6 @@ namespace pyoilab {
             for(const auto& v : boxPyLatticeVectors)
                 boxLatticeVectors.push_back(v.lv);
             auto latticeVectors= self.box(boxLatticeVectors,
-                                          orthogonality,
                                           dsclFactor,
                                           filename,
                                           orient);
@@ -55,7 +66,7 @@ namespace pyoilab {
             for(const auto& v : latticeVectors)
                 pyLatticeVectors.push_back(PyLatticeVector(v));
             return pyLatticeVectors;
-        }, py::arg("boxVectors"), py::arg("orthogonality"), py::arg("dsclFactor"), py::arg("filename")="", py::arg("orient")=false);
+        }, py::arg("boxVectors"), py::arg("dsclFactor"), py::arg("filename")="", py::arg("orient")=false);
         cls.def("getLatticeVectorInA",[](const BiCrystal& self, const PyLatticeVector& v){
             return PyLatticeVector(self.getLatticeVectorInA(v.lv));
         });
